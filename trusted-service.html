@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trusted Service — Kenya</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --green:#00A86B;--green-light:#E6F9F2;--green-dark:#007A4D;
+  --red:#CE1126;--gold:#F5A623;--gold-light:#FFF8EC;
+  --ink:#0D1A12;--ink2:#2D3B32;--muted:#6B7B72;
+  --surface:#F7FAF8;--white:#FFFFFF;--border:#D8E5DC;
+  --radius:14px;--radius-sm:8px;
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh}
+nav{background:var(--ink);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;cursor:pointer}
+.nav-logo span{color:var(--green)}
+.nav-dot{width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block}
+.nav-tabs{display:flex;gap:4px}
+.nav-tab{background:none;border:none;font-family:'DM Sans',sans-serif;font-size:.875rem;font-weight:500;color:rgba(255,255,255,.55);padding:8px 14px;border-radius:8px;cursor:pointer;transition:all .18s}
+.nav-tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+.nav-tab.active{color:var(--ink);background:var(--green);font-weight:600}
+.page{display:none;animation:fadeIn .3s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* LOGIN */
+.login-wrap{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;background:var(--ink);position:relative;overflow:hidden}
+.login-wrap::before{content:'';position:absolute;right:-100px;top:-100px;width:400px;height:400px;background:var(--green);opacity:.08;border-radius:50%}
+.login-wrap::after{content:'';position:absolute;left:-60px;bottom:-80px;width:250px;height:250px;background:var(--gold);opacity:.07;border-radius:50%}
+.login-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:2.5rem 2rem;width:100%;max-width:400px;position:relative;z-index:1}
+.login-logo-mark{width:54px;height:54px;background:var(--green);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem;font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;color:#fff}
+.login-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:#fff;text-align:center;margin-bottom:.25rem}
+.login-sub{text-align:center;font-size:.85rem;color:rgba(255,255,255,.4);margin-bottom:1.75rem}
+.form-group{margin-bottom:1rem}
+.form-label{display:block;font-size:.82rem;font-weight:500;color:rgba(255,255,255,.6);margin-bottom:.4rem}
+.form-input{width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.12);border-radius:var(--radius-sm);padding:.75rem 1rem;color:#fff;font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border .18s}
+.form-input::placeholder{color:rgba(255,255,255,.25)}
+.form-input:focus{border-color:var(--green)}
+.login-error{background:rgba(206,17,38,.15);border:1px solid rgba(206,17,38,.3);border-radius:var(--radius-sm);color:#FF8A9A;font-size:.82rem;padding:.6rem .9rem;margin-bottom:1rem;display:none}
+.login-btn{width:100%;background:var(--green);border:none;border-radius:var(--radius-sm);padding:.9rem;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:background .18s;margin-top:.5rem}
+.login-btn:hover{background:var(--green-dark)}
+.login-hint{text-align:center;font-size:.75rem;color:rgba(255,255,255,.25);margin-top:1rem}
+
+/* SEARCH */
+.search-hero{background:var(--ink);padding:2.5rem 2rem 3rem;position:relative;overflow:hidden}
+.search-hero::before{content:'';position:absolute;right:-80px;top:-80px;width:320px;height:320px;background:var(--green);opacity:.12;border-radius:50%}
+.search-hero::after{content:'';position:absolute;left:-40px;bottom:-60px;width:180px;height:180px;background:var(--gold);opacity:.10;border-radius:50%}
+.search-hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;color:#fff;line-height:1.2;margin-bottom:.5rem;position:relative;z-index:1}
+.search-hero h1 em{color:var(--green);font-style:normal}
+.search-hero p{color:rgba(255,255,255,.6);font-size:.95rem;margin-bottom:1.5rem;position:relative;z-index:1}
+.search-bar{display:flex;gap:8px;position:relative;z-index:1}
+.search-bar input{flex:1;background:rgba(255,255,255,.10);border:1.5px solid rgba(255,255,255,.15);border-radius:var(--radius-sm);padding:.75rem 1rem;color:#fff;font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border .18s}
+.search-bar input::placeholder{color:rgba(255,255,255,.4)}
+.search-bar input:focus{border-color:var(--green)}
+.search-bar button{background:var(--green);border:none;border-radius:var(--radius-sm);padding:.75rem 1.25rem;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;white-space:nowrap}
+.search-bar button:hover{background:var(--green-dark)}
+.filter-row{display:flex;gap:8px;padding:1.25rem 2rem;background:var(--white);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-chip{background:none;border:1.5px solid var(--border);border-radius:20px;padding:5px 14px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .18s}
+.filter-chip:hover{border-color:var(--green);color:var(--green)}
+.filter-chip.active{background:var(--green);border-color:var(--green);color:#fff}
+.results-meta{padding:1rem 2rem .5rem;font-size:.85rem;color:var(--muted)}
+.results-meta strong{color:var(--ink);font-weight:600}
+.providers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;padding:0 2rem 2rem}
+.provider-card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:all .22s;position:relative}
+.provider-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:var(--green)}
+.card-accent{height:5px}
+.card-body{padding:1.1rem 1.1rem .9rem}
+.card-top{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:.75rem}
+.avatar{width:52px;height:52px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem}
+.card-name{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:2px}
+.card-service{font-size:.82rem;color:var(--muted)}
+.verified-badge{display:inline-flex;align-items:center;gap:3px;background:var(--green-light);color:var(--green-dark);font-size:.72rem;font-weight:600;padding:2px 7px;border-radius:20px;margin-top:3px}
+.verified-badge::before{content:'✓';font-weight:800}
+.card-stats{display:flex;gap:.75rem;margin-bottom:.75rem}
+.stat{display:flex;flex-direction:column;align-items:center;flex:1;background:var(--surface);border-radius:var(--radius-sm);padding:.4rem .3rem}
+.stat-val{font-family:'Syne',sans-serif;font-weight:700;font-size:.95rem;color:var(--ink)}
+.stat-lbl{font-size:.68rem;color:var(--muted);text-align:center}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:.75rem}
+.tag{background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:.72rem;color:var(--ink2);padding:2px 8px}
+.card-footer{display:flex;justify-content:space-between;align-items:center}
+.location-text{font-size:.78rem;color:var(--muted)}
+.view-btn{background:var(--ink);color:#fff;border:none;border-radius:var(--radius-sm);padding:6px 14px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:500;cursor:pointer;transition:background .18s}
+.view-btn:hover{background:var(--green)}
+.rank-badge{position:absolute;top:14px;right:14px;background:var(--gold);color:var(--ink);font-family:'Syne',sans-serif;font-weight:800;font-size:.75rem;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+/* REGISTRATION */
+.reg-hero{background:var(--ink);padding:2.5rem 2rem;position:relative;overflow:hidden}
+.reg-hero::before{content:'';position:absolute;right:-80px;top:-80px;width:300px;height:300px;background:var(--gold);opacity:.10;border-radius:50%}
+.reg-hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:1.8rem;color:#fff;position:relative;z-index:1;margin-bottom:.4rem}
+.reg-hero h1 em{color:var(--gold);font-style:normal}
+.reg-hero p{color:rgba(255,255,255,.6);font-size:.9rem;position:relative;z-index:1}
+.reg-steps{display:flex;gap:0;padding:1rem 2rem;background:var(--white);border-bottom:1px solid var(--border);overflow-x:auto}
+.step-item{display:flex;align-items:center;gap:.5rem;white-space:nowrap}
+.step-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;border:2px solid var(--border);color:var(--muted);transition:all .3s}
+.step-num.done{background:var(--green);border-color:var(--green);color:#fff}
+.step-num.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.step-label{font-size:.78rem;color:var(--muted);font-weight:500}
+.step-label.active{color:var(--ink);font-weight:600}
+.step-arrow{color:var(--border);margin:0 .5rem;font-size:.85rem}
+.reg-body{max-width:720px;margin:0 auto;padding:2rem}
+.reg-section{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.reg-section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:1.1rem;display:flex;align-items:center;gap:.5rem}
+.reg-section-title span{width:28px;height:28px;background:var(--green-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--green);font-weight:700}
+.reg-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.reg-full{grid-column:1/-1}
+.field-group{display:flex;flex-direction:column;gap:.35rem}
+.field-label{font-size:.82rem;font-weight:500;color:var(--ink2)}
+.field-label .req{color:var(--red)}
+.field-input{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .9rem;font-family:'DM Sans',sans-serif;font-size:.9rem;color:var(--ink);outline:none;transition:border .18s;width:100%}
+.field-input:focus{border-color:var(--green);background:#fff}
+select.field-input{cursor:pointer}
+textarea.field-input{resize:vertical;min-height:90px;line-height:1.6}
+.field-hint{font-size:.73rem;color:var(--muted)}
+.service-adder{display:flex;gap:.5rem;margin-bottom:.75rem}
+.service-adder input{flex:1}
+.service-adder button{background:var(--green);border:none;border-radius:var(--radius-sm);color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:.85rem;padding:.65rem 1rem;cursor:pointer;white-space:nowrap}
+.services-tags{display:flex;flex-wrap:wrap;gap:.4rem;min-height:32px}
+.svc-tag{background:var(--green-light);border:1px solid var(--green);border-radius:20px;color:var(--green-dark);font-size:.78rem;font-weight:500;padding:3px 10px;display:inline-flex;align-items:center;gap:.4rem}
+.svc-tag button{background:none;border:none;color:var(--green-dark);cursor:pointer;font-size:.85rem;padding:0;line-height:1}
+.upload-box{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:2rem;text-align:center;cursor:pointer;transition:border .18s;background:var(--surface)}
+.upload-box:hover{border-color:var(--green);background:var(--green-light)}
+.upload-icon{font-size:2rem;margin-bottom:.5rem}
+.upload-text{font-size:.85rem;color:var(--muted)}
+.upload-text strong{color:var(--green);cursor:pointer}
+.upload-preview{display:none;align-items:center;gap:.75rem;background:var(--green-light);border:1px solid var(--green);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-top:.5rem}
+.upload-preview-name{font-size:.85rem;color:var(--green-dark);font-weight:500}
+.checkbox-row{display:flex;align-items:flex-start;gap:.6rem}
+.checkbox-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--green);margin-top:2px;flex-shrink:0;cursor:pointer}
+.checkbox-label{font-size:.85rem;color:var(--ink2);line-height:1.5}
+.checkbox-label a{color:var(--green)}
+.reg-submit{width:100%;background:var(--green);border:none;border-radius:var(--radius-sm);padding:1rem;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;cursor:pointer;transition:background .18s;display:flex;align-items:center;justify-content:center;gap:.5rem}
+.reg-submit:hover{background:var(--green-dark)}
+.reg-success{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:3rem 2rem;text-align:center;max-width:480px;margin:2rem auto}
+.success-icon{font-size:3.5rem;margin-bottom:1rem}
+.success-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--ink);margin-bottom:.5rem}
+.success-text{font-size:.9rem;color:var(--muted);line-height:1.7;margin-bottom:1.5rem}
+.success-ref{background:var(--green-light);border:1px solid var(--green);border-radius:var(--radius-sm);padding:.75rem 1rem;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--green-dark);display:inline-block;margin-bottom:1.5rem;letter-spacing:.08em}
+.success-btn{background:var(--ink);color:#fff;border:none;border-radius:var(--radius-sm);padding:.75rem 2rem;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer}
+
+/* PROFILE */
+.profile-hero{background:var(--ink);padding:2rem 2rem 0;position:relative;overflow:hidden}
+.profile-hero::before{content:'';position:absolute;right:0;top:0;width:40%;height:100%;background:linear-gradient(135deg,transparent,rgba(0,168,107,.18))}
+.back-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:var(--radius-sm);padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:.82rem;cursor:pointer;margin-bottom:1.5rem;display:inline-flex;align-items:center;gap:5px}
+.back-btn:hover{background:rgba(255,255,255,.18)}
+.profile-main{display:flex;gap:1.5rem;align-items:flex-end;flex-wrap:wrap}
+.profile-avatar{width:90px;height:90px;border-radius:50%;border:4px solid var(--green);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;flex-shrink:0}
+.profile-name{font-family:'Syne',sans-serif;font-weight:800;font-size:1.7rem;color:#fff;margin-bottom:4px}
+.profile-service-text{color:rgba(255,255,255,.65);font-size:.95rem;margin-bottom:.5rem}
+.profile-meta{display:flex;gap:.75rem;flex-wrap:wrap}
+.meta-pill{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:20px;color:rgba(255,255,255,.75);font-size:.78rem;padding:3px 10px}
+.meta-pill.green{background:rgba(0,168,107,.2);border-color:rgba(0,168,107,.35);color:#6EDDB8}
+.profile-tabs-bar{display:flex;border-top:1px solid rgba(255,255,255,.1);margin-top:1.5rem}
+.profile-tab{background:none;border:none;color:rgba(255,255,255,.5);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;padding:.75rem 1.25rem;cursor:pointer;border-bottom:2.5px solid transparent;transition:all .18s}
+.profile-tab.active{color:var(--green);border-bottom-color:var(--green);font-weight:600}
+.profile-body{padding:1.5rem 2rem;display:grid;grid-template-columns:1fr 300px;gap:1.5rem}
+.profile-section{margin-bottom:1.5rem}
+.section-head{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.section-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.about-text{font-size:.92rem;color:var(--ink2);line-height:1.7}
+.review-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.75rem}
+.reviewer-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.reviewer-avatar{width:32px;height:32px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;color:var(--green)}
+.reviewer-name{font-weight:500;font-size:.88rem;color:var(--ink)}
+.review-date{font-size:.75rem;color:var(--muted);margin-left:auto}
+.review-text{font-size:.88rem;color:var(--ink2);line-height:1.6}
+.stars{color:var(--gold);font-size:.85rem;letter-spacing:1px}
+.sidebar-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
+.sidebar-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;color:var(--ink);margin-bottom:.9rem}
+.trust-score{text-align:center;padding:.5rem 0}
+.trust-num{font-family:'Syne',sans-serif;font-weight:800;font-size:3rem;color:var(--green);line-height:1}
+.trust-label{font-size:.8rem;color:var(--muted);margin-top:3px}
+.trust-bar-row{margin-top:1rem}
+.trust-bar-label{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);margin-bottom:3px}
+.trust-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:.5rem}
+.trust-bar-fill{height:100%;border-radius:3px;background:var(--green)}
+.book-btn{width:100%;background:var(--green);border:none;border-radius:var(--radius-sm);padding:.85rem;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;transition:background .18s}
+.book-btn:hover{background:var(--green-dark)}
+.qr-placeholder{background:var(--surface);border:2px dashed var(--border);border-radius:var(--radius-sm);padding:1.5rem;text-align:center}
+.qr-box{width:80px;height:80px;background:var(--ink);border-radius:6px;margin:0 auto .5rem;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:6px}
+.qr-cell{background:var(--ink);border-radius:1px}
+.qr-cell.w{background:#fff}
+.qr-label{font-size:.75rem;color:var(--muted)}
+
+/* ADMIN */
+.admin-header{background:var(--white);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between}
+.admin-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:var(--ink)}
+.admin-subtitle{font-size:.8rem;color:var(--muted);margin-top:1px}
+.admin-badge{background:var(--red);color:#fff;border-radius:20px;font-size:.72rem;font-weight:700;padding:2px 8px}
+.logout-btn{background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:.8rem;color:var(--muted);cursor:pointer;transition:all .18s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+.admin-body{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 120px)}
+.admin-sidebar{background:var(--white);border-right:1px solid var(--border);padding:1rem 0}
+.admin-nav-item{display:flex;align-items:center;gap:.6rem;padding:.65rem 1.25rem;font-size:.87rem;color:var(--muted);cursor:pointer;transition:all .18s;border-left:3px solid transparent;font-weight:500}
+.admin-nav-item:hover{background:var(--surface);color:var(--ink)}
+.admin-nav-item.active{background:var(--green-light);color:var(--green-dark);border-left-color:var(--green);font-weight:600}
+.admin-main{padding:1.5rem 2rem;background:var(--surface)}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+.metric-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem}
+.metric-icon{font-size:1.3rem;margin-bottom:.5rem}
+.metric-val{font-family:'Syne',sans-serif;font-weight:800;font-size:1.6rem;color:var(--ink);line-height:1}
+.metric-lbl{font-size:.78rem;color:var(--muted);margin-top:3px}
+.metric-delta{font-size:.75rem;margin-top:.35rem}
+.delta-up{color:var(--green)}
+.delta-down{color:var(--red)}
+.admin-grid{display:grid;grid-template-columns:1fr 340px;gap:1rem}
+.panel{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1rem}
+.panel-head{padding:.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;color:var(--ink)}
+.panel-action{font-size:.78rem;color:var(--green);cursor:pointer;font-weight:500}
+.verif-item{display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem;border-bottom:1px solid var(--border)}
+.verif-item:last-child{border-bottom:none}
+.verif-avatar{width:38px;height:38px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:.85rem;color:var(--green);flex-shrink:0}
+.verif-name{font-weight:500;font-size:.88rem;color:var(--ink)}
+.verif-sub{font-size:.75rem;color:var(--muted)}
+.verif-actions{display:flex;gap:5px;margin-left:auto}
+.btn-approve{background:var(--green);border:none;border-radius:6px;color:#fff;font-size:.75rem;font-weight:600;padding:4px 10px;cursor:pointer}
+.btn-approve:hover{background:var(--green-dark)}
+.btn-reject{background:none;border:1.5px solid var(--border);border-radius:6px;color:var(--muted);font-size:.75rem;font-weight:600;padding:4px 10px;cursor:pointer}
+.btn-reject:hover{border-color:var(--red);color:var(--red)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-pending{background:var(--gold)}
+.dot-verified{background:var(--green)}
+.dot-rejected{background:var(--red)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-family:'Syne',sans-serif;font-size:.75rem;font-weight:700;color:var(--muted);text-align:left;padding:.65rem 1.25rem;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.04em}
+td{padding:.7rem 1.25rem;font-size:.85rem;color:var(--ink2);border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface)}
+.status-pill{display:inline-block;border-radius:20px;font-size:.72rem;font-weight:600;padding:2px 9px}
+.sp-verified{background:var(--green-light);color:var(--green-dark)}
+.sp-pending{background:var(--gold-light);color:#8B5E00}
+.sp-suspended{background:#FEE2E2;color:#991B1B}
+.chart-wrap{padding:1.25rem;height:160px;display:flex;align-items:flex-end;gap:4px}
+.bar{background:var(--green-light);border-radius:4px 4px 0 0;flex:1;border:1px solid var(--green);cursor:pointer}
+.bar:hover{background:var(--green)}
+.chart-labels{padding:0 1.25rem 1.25rem;display:flex;gap:4px}
+.cl{flex:1;font-size:.65rem;color:var(--muted);text-align:center}
+.alert-item{display:flex;gap:.75rem;align-items:flex-start;padding:.75rem 1.25rem;border-bottom:1px solid var(--border)}
+.alert-item:last-child{border-bottom:none}
+.alert-icon{font-size:1rem;margin-top:1px}
+.alert-text{font-size:.83rem;color:var(--ink2);line-height:1.5}
+.alert-time{font-size:.72rem;color:var(--muted);margin-top:1px}
+
+/* HOSTING NOTE BANNER */
+.host-note{background:var(--gold-light);border-bottom:1px solid #F5C67A;padding:.6rem 2rem;font-size:.8rem;color:#7A4F00;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.host-note strong{font-weight:600}
+.host-note a{color:#7A4F00;font-weight:600}
+
+@media(max-width:700px){
+  .profile-body{grid-template-columns:1fr}
+  .admin-body{grid-template-columns:1fr}
+  .admin-sidebar{display:none}
+  .metrics-row{grid-template-columns:1fr 1fr}
+  .admin-grid{grid-template-columns:1fr}
+  .providers-grid{grid-template-columns:1fr}
+  .reg-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- HOSTING BANNER -->
+<div class="host-note">
+  📡 <strong>Want a public link?</strong> Download this file, then drag and drop it at <a href="https://tiiny.host" target="_blank">tiiny.host</a> — get a live URL like <strong>http://trusted-service.tiiny.host</strong> in 30 seconds, works on any phone or PC.
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo" onclick="showPage('search')">
+    <span class="nav-dot"></span>Trusted<span>Service</span>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('search')">🔍 Search</button>
+    <button class="nav-tab" onclick="showPage('register')">➕ Join as Provider</button>
+    <button class="nav-tab" onclick="goAdmin()">⚙️ Admin</button>
+  </div>
+</nav>
+
+<!-- SEARCH PAGE -->
+<div class="page active" id="page-search">
+  <div class="search-hero">
+    <h1>Find <em>trusted</em> services<br>near you</h1>
+    <p>Verified providers, real reviews — no more guessing.</p>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="e.g. laundry, cleaning, tailoring…"/>
+      <button onclick="doSearch()">Search</button>
+    </div>
+  </div>
+  <div class="filter-row">
+    <button class="filter-chip active" onclick="filterCat(this,'All')">All</button>
+    <button class="filter-chip" onclick="filterCat(this,'Laundry')">🧺 Laundry</button>
+    <button class="filter-chip" onclick="filterCat(this,'Cleaning')">🧹 Cleaning</button>
+    <button class="filter-chip" onclick="filterCat(this,'Tailoring')">🧵 Tailoring</button>
+    <button class="filter-chip" onclick="filterCat(this,'Plumbing')">🔧 Plumbing</button>
+    <button class="filter-chip" onclick="filterCat(this,'Electrical')">⚡ Electrical</button>
+    <button class="filter-chip" onclick="filterCat(this,'Childcare')">👶 Childcare</button>
+    <button class="filter-chip" onclick="filterCat(this,'Beauty')">💇 Beauty</button>
+  </div>
+  <div class="results-meta">Showing <strong id="result-count">8</strong> providers · Nairobi</div>
+  <div class="providers-grid" id="providers-grid"></div>
+</div>
+
+<!-- PROVIDER REGISTRATION PAGE -->
+<div class="page" id="page-register">
+  <div class="reg-hero">
+    <h1>Join as a <em>service provider</em></h1>
+    <p>Create your verified profile and start getting trusted clients across Nairobi.</p>
+  </div>
+  <div class="reg-steps">
+    <div class="step-item"><div class="step-num active" id="snum-1">1</div><div class="step-label active" id="slbl-1">Personal info</div></div>
+    <div class="step-arrow">›</div>
+    <div class="step-item"><div class="step-num" id="snum-2">2</div><div class="step-label" id="slbl-2">Services offered</div></div>
+    <div class="step-arrow">›</div>
+    <div class="step-item"><div class="step-num" id="snum-3">3</div><div class="step-label" id="slbl-3">Verification docs</div></div>
+    <div class="step-arrow">›</div>
+    <div class="step-item"><div class="step-num" id="snum-4">4</div><div class="step-label" id="slbl-4">Review & submit</div></div>
+  </div>
+  <div id="reg-form-wrap">
+    <!-- Step 1 -->
+    <div id="reg-step-1" class="reg-body">
+      <div class="reg-section">
+        <div class="reg-section-title"><span>1</span> Personal information</div>
+        <div class="reg-grid">
+          <div class="field-group"><label class="field-label">First name <span class="req">*</span></label><input class="field-input" type="text" id="r-firstname" placeholder="e.g. Mary"/></div>
+          <div class="field-group"><label class="field-label">Last name <span class="req">*</span></label><input class="field-input" type="text" id="r-lastname" placeholder="e.g. Wanjiku"/></div>
+          <div class="field-group"><label class="field-label">Phone number <span class="req">*</span></label><input class="field-input" type="tel" id="r-phone" placeholder="07XX XXX XXX"/></div>
+          <div class="field-group"><label class="field-label">Email address</label><input class="field-input" type="email" id="r-email" placeholder="your@email.com"/></div>
+          <div class="field-group"><label class="field-label">Location / Area <span class="req">*</span></label><input class="field-input" type="text" id="r-location" placeholder="e.g. Westlands, Nairobi"/></div>
+          <div class="field-group"><label class="field-label">Category <span class="req">*</span></label>
+            <select class="field-input" id="r-category">
+              <option value="">Select a category…</option>
+              <option>Laundry</option><option>Cleaning</option><option>Tailoring</option>
+              <option>Plumbing</option><option>Electrical</option><option>Childcare</option>
+              <option>Beauty</option><option>Cooking</option><option>Gardening</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field-group reg-full"><label class="field-label">Bio / About you <span class="req">*</span></label><textarea class="field-input" id="r-bio" placeholder="Tell clients about your experience, specialties and what makes you reliable…"></textarea><div class="field-hint">Minimum 50 characters. Be specific — it builds trust.</div></div>
+        </div>
+      </div>
+      <button class="reg-submit" onclick="goStep(2)">Continue to Services →</button>
+    </div>
+    <!-- Step 2 -->
+    <div id="reg-step-2" class="reg-body" style="display:none">
+      <div class="reg-section">
+        <div class="reg-section-title"><span>2</span> Services & pricing</div>
+        <div class="field-group" style="margin-bottom:1rem">
+          <label class="field-label">Add a service with price <span class="req">*</span></label>
+          <div class="service-adder">
+            <input class="field-input" type="text" id="svc-name" placeholder="e.g. Wash & fold"/>
+            <input class="field-input" type="text" id="svc-price" placeholder="KSh 50/kg" style="max-width:130px"/>
+            <button onclick="addService()">+ Add</button>
+          </div>
+          <div class="services-tags" id="services-tags"><span style="font-size:.78rem;color:var(--muted)">No services added yet</span></div>
+        </div>
+        <div class="field-group" style="margin-top:1rem">
+          <label class="field-label">Availability</label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;margin-top:.35rem">
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Mon</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Tue</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Wed</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Thu</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Fri</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Sat</label>
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.85rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--green)"/> Sun</label>
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:1rem">
+          <label class="field-label">Pickup & delivery offered?</label>
+          <select class="field-input" style="max-width:280px">
+            <option>Yes — included in price</option>
+            <option>Yes — extra charge</option>
+            <option>No — client drops off</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem">
+        <button class="reg-submit" style="background:var(--surface);color:var(--ink);border:1.5px solid var(--border);flex:0 0 120px" onclick="goStep(1)">← Back</button>
+        <button class="reg-submit" onclick="goStep(3)">Continue to Verification →</button>
+      </div>
+    </div>
+    <!-- Step 3 -->
+    <div id="reg-step-3" class="reg-body" style="display:none">
+      <div class="reg-section">
+        <div class="reg-section-title"><span>3</span> Identity verification</div>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1.25rem;line-height:1.6">To get your verified badge, we confirm your identity. Documents are reviewed within 24 hours and stored securely under the <strong>Kenya Data Protection Act (2019)</strong>.</p>
+        <div class="reg-grid">
+          <div class="field-group reg-full"><label class="field-label">National ID / Passport number <span class="req">*</span></label><input class="field-input" type="text" id="r-idnum" placeholder="e.g. 12345678"/></div>
+          <div class="field-group reg-full">
+            <label class="field-label">Upload ID document (front) <span class="req">*</span></label>
+            <div class="upload-box" onclick="document.getElementById('id-front').click()">
+              <div class="upload-icon">🪪</div>
+              <div class="upload-text">Drag & drop or <strong>click to upload</strong></div>
+              <div class="upload-text" style="margin-top:4px;font-size:.75rem">JPG, PNG or PDF · Max 5MB</div>
+            </div>
+            <div class="upload-preview" id="prev-id-front"><span style="font-size:1.2rem">✅</span><span class="upload-preview-name" id="prevname-id-front"></span></div>
+            <input type="file" id="id-front" style="display:none" accept=".jpg,.jpeg,.png,.pdf" onchange="showPreview('id-front')"/>
+          </div>
+          <div class="field-group reg-full">
+            <label class="field-label">Upload selfie with ID (recommended)</label>
+            <div class="upload-box" onclick="document.getElementById('id-selfie').click()">
+              <div class="upload-icon">🤳</div>
+              <div class="upload-text">Drag & drop or <strong>click to upload</strong></div>
+              <div class="upload-text" style="margin-top:4px;font-size:.75rem">JPG or PNG · Max 5MB</div>
+            </div>
+            <div class="upload-preview" id="prev-id-selfie"><span style="font-size:1.2rem">✅</span><span class="upload-preview-name" id="prevname-id-selfie"></span></div>
+            <input type="file" id="id-selfie" style="display:none" accept=".jpg,.jpeg,.png" onchange="showPreview('id-selfie')"/>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem">
+        <button class="reg-submit" style="background:var(--surface);color:var(--ink);border:1.5px solid var(--border);flex:0 0 120px" onclick="goStep(2)">← Back</button>
+        <button class="reg-submit" onclick="goStep(4)">Review application →</button>
+      </div>
+    </div>
+    <!-- Step 4 -->
+    <div id="reg-step-4" class="reg-body" style="display:none">
+      <div class="reg-section">
+        <div class="reg-section-title"><span>4</span> Review your application</div>
+        <div id="review-summary" style="font-size:.88rem;color:var(--ink2);line-height:2"></div>
+      </div>
+      <div class="reg-section">
+        <div class="field-group"><div class="checkbox-row"><input type="checkbox" id="agree-terms"/><label class="checkbox-label" for="agree-terms">I agree to the <a href="#">Terms of Service</a> and confirm all information is accurate.</label></div></div>
+        <div class="field-group" style="margin-top:.75rem"><div class="checkbox-row"><input type="checkbox" id="agree-dpa"/><label class="checkbox-label" for="agree-dpa">I consent to data processing for verification under the <a href="#">Kenya Data Protection Act (2019)</a>.</label></div></div>
+      </div>
+      <div style="display:flex;gap:.75rem">
+        <button class="reg-submit" style="background:var(--surface);color:var(--ink);border:1.5px solid var(--border);flex:0 0 120px" onclick="goStep(3)">← Back</button>
+        <button class="reg-submit" onclick="submitReg()">✓ Submit application</button>
+      </div>
+    </div>
+  </div>
+  <div id="reg-success" style="display:none;padding:1rem 1rem 3rem">
+    <div class="reg-success">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Application submitted!</div>
+      <div class="success-text">Your profile is under review. We'll verify your documents and activate your account within 24 hours. You'll receive an SMS confirmation shortly.</div>
+      <div class="success-ref" id="success-ref">REF: TS-2024-0049</div><br/>
+      <button class="success-btn" onclick="showPage('search')">Browse the platform →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN PAGE -->
+<div class="page" id="page-admin-login">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <div class="login-logo-mark">TS</div>
+        <div class="login-title">Admin portal</div>
+        <div class="login-sub">Trusted Service — Platform management</div>
+      </div>
+      <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
+      <div class="form-group"><label class="form-label">Email address</label><input class="form-input" type="email" id="login-email" placeholder="admin@trustedservice.co.ke"/></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <button class="login-btn" onclick="doLogin()">Sign in to dashboard</button>
+      <div class="login-hint">Access restricted to authorised administrators only</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div class="page" id="page-admin">
+  <div class="admin-header">
+    <div><div class="admin-title">Admin Dashboard</div><div class="admin-subtitle">Trusted Service · michaelvincentnyak@gmail.com</div></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="admin-badge" id="queue-badge">3 pending</span>
+      <button class="logout-btn" onclick="doLogout()">Log out</button>
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem">MV</div>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="admin-sidebar">
+      <div class="admin-nav-item active" onclick="setAdminNav(this)"><span class="icon">📊</span> Overview</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">✅</span> Verification queue</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">👥</span> Providers</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">⭐</span> Reviews</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">🚩</span> Reports</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">📈</span> Analytics</div>
+      <div class="admin-nav-item" onclick="setAdminNav(this)"><span class="icon">⚙️</span> Settings</div>
+    </div>
+    <div class="admin-main">
+      <div class="metrics-row">
+        <div class="metric-card"><div class="metric-icon">👥</div><div class="metric-val">247</div><div class="metric-lbl">Total providers</div><div class="metric-delta delta-up">↑ 12 this month</div></div>
+        <div class="metric-card"><div class="metric-icon">✅</div><div class="metric-val">189</div><div class="metric-lbl">Verified</div><div class="metric-delta delta-up">76% rate</div></div>
+        <div class="metric-card"><div class="metric-icon">⭐</div><div class="metric-val">1,432</div><div class="metric-lbl">Total reviews</div><div class="metric-delta delta-up">↑ 98 this week</div></div>
+        <div class="metric-card"><div class="metric-icon">🚩</div><div class="metric-val">5</div><div class="metric-lbl">Open disputes</div><div class="metric-delta delta-down">↑ 2 new today</div></div>
+      </div>
+      <div class="admin-grid">
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Verification queue <span class="admin-badge" style="font-size:.7rem" id="queue-badge2">3</span></div><div class="panel-action">View all →</div></div>
+            <div id="verif-queue">
+              <div class="verif-item"><div class="status-dot dot-pending"></div><div class="verif-avatar">GN</div><div><div class="verif-name">Grace Njeri</div><div class="verif-sub">Cleaning · Submitted 2h ago</div></div><div class="verif-actions"><button class="btn-approve" onclick="approveVerif(this)">Approve</button><button class="btn-reject" onclick="rejectVerif(this)">Reject</button></div></div>
+              <div class="verif-item"><div class="status-dot dot-pending"></div><div class="verif-avatar">PO</div><div><div class="verif-name">Peter Ochieng</div><div class="verif-sub">Plumbing · Submitted 5h ago</div></div><div class="verif-actions"><button class="btn-approve" onclick="approveVerif(this)">Approve</button><button class="btn-reject" onclick="rejectVerif(this)">Reject</button></div></div>
+              <div class="verif-item"><div class="status-dot dot-pending"></div><div class="verif-avatar">FK</div><div><div class="verif-name">Fatuma Karimi</div><div class="verif-sub">Beauty · Submitted 1d ago</div></div><div class="verif-actions"><button class="btn-approve" onclick="approveVerif(this)">Approve</button><button class="btn-reject" onclick="rejectVerif(this)">Reject</button></div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Recent providers</div><div class="panel-action">View all 247 →</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Category</th><th>Rating</th><th>Status</th><th>Joined</th></tr></thead>
+                <tbody>
+                  <tr><td>Mary Wanjiku</td><td>Laundry</td><td>⭐ 4.8</td><td><span class="status-pill sp-verified">Verified</span></td><td>Jan 2023</td></tr>
+                  <tr><td>James Muthoni</td><td>Electrical</td><td>⭐ 4.5</td><td><span class="status-pill sp-verified">Verified</span></td><td>Mar 2023</td></tr>
+                  <tr><td>Sarah Akinyi</td><td>Childcare</td><td>⭐ 4.9</td><td><span class="status-pill sp-pending">Pending</span></td><td>Apr 2024</td></tr>
+                  <tr><td>David Kiprotich</td><td>Tailoring</td><td>⭐ 4.2</td><td><span class="status-pill sp-verified">Verified</span></td><td>Jun 2023</td></tr>
+                  <tr><td>Rose Adhiambo</td><td>Cleaning</td><td>⭐ 3.9</td><td><span class="status-pill sp-suspended">Suspended</span></td><td>Aug 2023</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">New registrations (2024)</div></div>
+            <div class="chart-wrap" id="admin-chart"></div>
+            <div class="chart-labels" id="admin-chart-labels"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Recent alerts</div><div class="panel-action">Clear all</div></div>
+            <div class="alert-item"><div class="alert-icon">🚩</div><div><div class="alert-text">Review flagged on <strong>Rose Adhiambo</strong>'s profile — possible fake content</div><div class="alert-time">15 minutes ago</div></div></div>
+            <div class="alert-item"><div class="alert-icon">✅</div><div><div class="alert-text"><strong>James Muthoni</strong> hit 50 reviews — Trust Score updated to 91</div><div class="alert-time">1 hour ago</div></div></div>
+            <div class="alert-item"><div class="alert-icon">📋</div><div><div class="alert-text">New application from <strong>Fatuma Karimi</strong> awaiting ID review</div><div class="alert-time">1 day ago</div></div></div>
+            <div class="alert-item"><div class="alert-icon">⚠️</div><div><div class="alert-text"><strong>David Kiprotich</strong> has 2 unresolved disputes in 30 days</div><div class="alert-time">2 days ago</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE PAGE -->
+<div class="page" id="page-profile">
+  <div class="profile-hero">
+    <button class="back-btn" onclick="showPage('search')">← Back to search</button>
+    <div class="profile-main">
+      <div class="profile-avatar" id="prof-avatar">MW</div>
+      <div>
+        <div class="profile-name" id="prof-name">Mary Wanjiku</div>
+        <div class="profile-service-text" id="prof-service">Laundry & Ironing</div>
+        <div class="profile-meta">
+          <span class="meta-pill green">✓ Verified</span>
+          <span class="meta-pill" id="prof-location">📍 Westlands, Nairobi</span>
+          <span class="meta-pill">⭐ <span id="prof-rating">4.8</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="profile-tabs-bar">
+      <button class="profile-tab active" onclick="switchProfileTab(this)">Overview</button>
+      <button class="profile-tab" onclick="switchProfileTab(this)">Reviews</button>
+      <button class="profile-tab" onclick="switchProfileTab(this)">Services & Pricing</button>
+    </div>
+  </div>
+  <div class="profile-body">
+    <div>
+      <div class="profile-section"><div class="section-head">About</div><p class="about-text" id="prof-bio">Loading…</p></div>
+      <div class="profile-section"><div class="section-head">Reviews</div><div id="prof-reviews"></div></div>
+    </div>
+    <div>
+      <div class="sidebar-card">
+        <div class="sidebar-title">Trust Score</div>
+        <div class="trust-score"><div class="trust-num" id="prof-trust">94</div><div class="trust-label">out of 100 — Excellent</div></div>
+        <div class="trust-bar-row">
+          <div class="trust-bar-label"><span>Reviews</span><span id="tb-r">4.8/5</span></div><div class="trust-bar"><div class="trust-bar-fill" id="tbf-r" style="width:96%"></div></div>
+          <div class="trust-bar-label"><span>Reliability</span><span id="tb-rel">98%</span></div><div class="trust-bar"><div class="trust-bar-fill" id="tbf-rel" style="width:98%"></div></div>
+          <div class="trust-bar-label"><span>Response rate</span><span id="tb-resp">88%</span></div><div class="trust-bar"><div class="trust-bar-fill" id="tbf-resp" style="width:88%"></div></div>
+        </div>
+      </div>
+      <div class="sidebar-card"><button class="book-btn">Book Now</button><div style="text-align:center;margin-top:.6rem;font-size:.75rem;color:var(--muted)">Responds within 2 hours</div></div>
+      <div class="sidebar-card">
+        <div class="sidebar-title">QR Trust Badge</div>
+        <div class="qr-placeholder">
+          <div class="qr-box">
+            <div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell"></div>
+            <div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div>
+            <div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div>
+            <div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div>
+            <div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div>
+            <div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell w"></div><div class="qr-cell"></div>
+            <div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell w"></div><div class="qr-cell"></div><div class="qr-cell"></div><div class="qr-cell"></div>
+          </div>
+          <div class="qr-label">Scan to verify this provider</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ADMIN_EMAIL='michaelvincentnyak@gmail.com';
+const ADMIN_PASS='Michael 009';
+let adminLoggedIn=false;
+let pendingCount=3;
+let addedServices=[];
+
+const allReviews={
+  1:[
+    {name:'Jane Otieno',init:'JO',stars:5,date:'3 days ago',text:'Mary is absolutely reliable! My clothes always come back fresh, neatly folded and on time. She removed a stain I thought was permanent — genuinely impressed.'},
+    {name:'Brian Kamau',init:'BK',stars:5,date:'1 week ago',text:'Same-day service saved me before a big meeting. Called at 8am, perfectly ironed clothes back by 5pm. Very professional and trustworthy.'},
+    {name:'Aisha Mohamed',init:'AM',stars:4,date:'2 weeks ago',text:'Good overall. Pickup was a bit late but every item was handled with great care. Will definitely use again.'},
+  ],
+  2:[
+    {name:'Kelvin Mwangi',init:'KM',stars:5,date:'1 day ago',text:'Grace is thorough and detail-oriented. My house has never looked this clean — she even organised my kitchen shelves without being asked!'},
+    {name:'Patience Njoroge',init:'PN',stars:4,date:'4 days ago',text:'Professional and punctual. Good value for weekly cleaning. Would recommend to anyone in Kilimani.'},
+    {name:'Tom Odhiambo',init:'TO',stars:5,date:'1 week ago',text:'She brought her own eco-friendly products and the results were outstanding. I was impressed by how thorough she was with the bathrooms.'},
+  ],
+  3:[
+    {name:'Dr. Wangari Maina',init:'DW',stars:5,date:'2 days ago',text:'Sarah is wonderful with our children. Patient, caring and very safety-conscious. Our kids absolutely love her and ask for her by name.'},
+    {name:'Alex Kimani',init:'AK',stars:5,date:'5 days ago',text:'Sarah has been with us for 6 months and feels like family. Her First Aid certification gave us real peace of mind from day one.'},
+    {name:'Miriam Osei',init:'MO',stars:5,date:'3 weeks ago',text:'Best nanny we have ever hired. The kids actually improved their reading while she was with us. Highly recommend.'},
+  ],
+  4:[
+    {name:'Hassan Abdi',init:'HA',stars:5,date:'Yesterday',text:'James fixed our faulty wiring quickly and explained exactly what he did. Licensed, reliable and fair pricing — rare combination.'},
+    {name:'Ruth Macharia',init:'RM',stars:4,date:'3 days ago',text:'Good work, arrived on time and fixed the issue in under an hour. Slightly pricier than expected but the quality justified it.'},
+    {name:'Geoffrey Otieno',init:'GO',stars:5,date:'2 weeks ago',text:'Emergency call at 9pm and James arrived within 45 minutes. An absolute lifesaver. His number is saved in my phone permanently.'},
+  ],
+  5:[
+    {name:'Stella Waweru',init:'SW',stars:4,date:'1 week ago',text:'David crafted a beautiful suit for my wedding. The attention to detail was excellent. Delivery was one day late but the finished product was perfect.'},
+    {name:'Moses Kipchoge',init:'MK',stars:4,date:'2 weeks ago',text:'Good alterations work at affordable prices. Very friendly service. I will definitely return for my next set of trousers.'},
+    {name:'Nancy Koech',init:'NK',stars:5,date:'1 month ago',text:'Talented tailor — he replicated a design from a photo I showed him and the result was flawless. Very happy.'},
+  ],
+  6:[
+    {name:'Cynthia Otieno',init:'CO',stars:5,date:'2 days ago',text:'Amina is a gem! She did my braids beautifully and comes to your home which is so convenient. Very hygienic and professional throughout.'},
+    {name:'Lydia Kamau',init:'LK',stars:5,date:'5 days ago',text:'Best natural hair specialist I have found in Nairobi. She knows exactly what your hair needs and the style lasts for weeks.'},
+    {name:'Beatrice Omondi',init:'BO',stars:4,date:'2 weeks ago',text:'The mobile service is very convenient. Good quality braiding at a fair price. Booking again next month.'},
+  ],
+  7:[
+    {name:'Samuel Mwenda',init:'SM',stars:4,date:'4 days ago',text:'Joseph fixed our burst pipe quickly and cleanly. Slightly hard to reach by phone but once he arrived the work was excellent.'},
+    {name:'Christine Wanjiku',init:'CW',stars:5,date:'1 week ago',text:'Found and fixed a hidden leak that two other plumbers had missed. Thorough, honest and very fairly priced.'},
+    {name:'Daniel Odhiambo',init:'DO',stars:4,date:'3 weeks ago',text:'Decent work and good pricing. Came same day which I was not expecting. Would use again without hesitation.'},
+  ],
+  8:[
+    {name:'Esther Ngugi',init:'EN',stars:5,date:'3 days ago',text:'Priscilla and her team transformed our office overnight. Super professional — zero disruption to the next day\'s work.'},
+    {name:'Mark Kariuki',init:'MK',stars:5,date:'1 week ago',text:'Outstanding commercial cleaning. The office smells fresh and looks spotless every Monday morning. Worth every shilling.'},
+    {name:'Irene Ochieng',init:'IO',stars:4,date:'2 weeks ago',text:'Reliable and thorough. Great value for office cleaning. A minor scheduling mix-up was resolved quickly and professionally.'},
+  ],
+};
+
+const providers=[
+  {id:1,name:'Mary Wanjiku',initials:'MW',service:'Laundry & Ironing',category:'Laundry',rating:4.8,reviews:24,jobs:142,location:'Westlands',trust:94,color:'#00A86B',tags:['Same-day','Pickup & Delivery','Ironing'],bio:'Professional laundry and ironing provider in Westlands for over 5 years. I handle all fabric types with care, use quality detergents, and offer same-day turnaround. Trusted by 120+ regular clients.'},
+  {id:2,name:'Grace Njeri',initials:'GN',service:'House Cleaning',category:'Cleaning',rating:4.6,reviews:38,jobs:201,location:'Kilimani',trust:88,color:'#E67E22',tags:['Deep clean','Weekly','Eco-friendly'],bio:'Professional house cleaner in Kilimani with 7 years of experience. I specialise in deep cleans, move-in/out cleaning and weekly maintenance, using eco-friendly products and bringing all my own equipment.'},
+  {id:3,name:'Sarah Akinyi',initials:'SA',service:'Childcare & Nanny',category:'Childcare',rating:4.9,reviews:17,jobs:89,location:'Karen',trust:96,color:'#8E44AD',tags:['Experienced','First Aid','References'],bio:'Dedicated nanny with 8 years of experience caring for children aged 0–12. First Aid certified, background-checked with excellent references. Offering full-time, part-time and weekend care in Karen and nearby areas.'},
+  {id:4,name:'James Muthoni',initials:'JM',service:'Electrical Repairs',category:'Electrical',rating:4.5,reviews:51,jobs:310,location:'Parklands',trust:91,color:'#E74C3C',tags:['Licensed','24hr Emergency','Wiring'],bio:'Licensed electrician with 10+ years in residential and commercial electrical work. Available 24/7 for emergencies. Services include wiring, fault diagnosis, meter installation and safety inspections.'},
+  {id:5,name:'David Kiprotich',initials:'DK',service:'Bespoke Tailoring',category:'Tailoring',rating:4.2,reviews:29,jobs:175,location:'CBD',trust:79,color:'#2980B9',tags:['Alterations','Suits','Quick turnaround'],bio:'Skilled tailor in the CBD with 12 years crafting bespoke suits, dresses and doing alterations. Works with all fabrics, can replicate designs from photos, and offers quick turnaround for urgent orders.'},
+  {id:6,name:'Amina Hassan',initials:'AH',service:'Hair & Beauty',category:'Beauty',rating:4.7,reviews:63,jobs:420,location:'Lavington',trust:93,color:'#C0392B',tags:['Mobile','Braids','Natural hair'],bio:'Mobile hair and beauty specialist serving Lavington, Kilimani and Westlands. Specialising in braids, natural hair treatments and protective styles. Fully equipped — comes to your home.'},
+  {id:7,name:'Joseph Oduya',initials:'JO',service:'Plumbing & Pipework',category:'Plumbing',rating:4.3,reviews:22,jobs:134,location:'Eastleigh',trust:82,color:'#16A085',tags:['Emergency','Certified','Leaks & Pipes'],bio:'Certified plumber serving all of Nairobi, based in Eastleigh. Specialises in leak detection, burst pipes, bathroom installation and tank fitting. Same-day service available. All work guaranteed.'},
+  {id:8,name:'Priscilla Wambui',initials:'PW',service:'Office Cleaning',category:'Cleaning',rating:4.8,reviews:11,jobs:55,location:'Upper Hill',trust:87,color:'#D35400',tags:['Commercial','Night shift','Equipment'],bio:'Commercial cleaning specialist in Upper Hill. Scheduled office cleaning for businesses of all sizes — evenings, nights and weekends to avoid disruption. Team brings all industrial-grade equipment.'},
+];
+
+function renderProviders(list){
+  document.getElementById('result-count').textContent=list.length;
+  document.getElementById('providers-grid').innerHTML=list.map((p,i)=>`
+    <div class="provider-card" onclick="openProfile(${p.id})">
+      <div class="card-accent" style="background:${p.color}"></div>
+      ${i<3?`<div class="rank-badge">#${i+1}</div>`:''}
+      <div class="card-body">
+        <div class="card-top">
+          <div class="avatar" style="background:${p.color}22;color:${p.color}">${p.initials}</div>
+          <div><div class="card-name">${p.name}</div><div class="card-service">${p.service}</div><span class="verified-badge">Verified</span></div>
+        </div>
+        <div class="card-stats">
+          <div class="stat"><div class="stat-val">${p.rating}</div><div class="stat-lbl">Rating</div></div>
+          <div class="stat"><div class="stat-val">${p.reviews}</div><div class="stat-lbl">Reviews</div></div>
+          <div class="stat"><div class="stat-val">${p.jobs}</div><div class="stat-lbl">Jobs done</div></div>
+          <div class="stat"><div class="stat-val">${p.trust}</div><div class="stat-lbl">Trust score</div></div>
+        </div>
+        <div class="card-tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        <div class="card-footer"><span class="location-text">📍 ${p.location}</span><button class="view-btn">View profile</button></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterCat(el,cat){
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderProviders(cat==='All'?providers:providers.filter(p=>p.category===cat));
+}
+
+function doSearch(){
+  const q=document.getElementById('search-input').value.toLowerCase();
+  renderProviders(providers.filter(p=>p.name.toLowerCase().includes(q)||p.service.toLowerCase().includes(q)||p.category.toLowerCase().includes(q)||p.tags.some(t=>t.toLowerCase().includes(q))));
+}
+
+document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+function openProfile(id){
+  const p=providers.find(x=>x.id===id);
+  if(!p) return;
+  const av=document.getElementById('prof-avatar');
+  av.textContent=p.initials; av.style.cssText+=`;background:${p.color}22;color:${p.color};border-color:${p.color}`;
+  document.getElementById('prof-name').textContent=p.name;
+  document.getElementById('prof-service').textContent=p.service;
+  document.getElementById('prof-location').textContent='📍 '+p.location;
+  document.getElementById('prof-rating').textContent=p.rating;
+  document.getElementById('prof-trust').textContent=p.trust;
+  document.getElementById('prof-bio').textContent=p.bio;
+  const revs=allReviews[id]||[];
+  const star=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+  document.getElementById('prof-reviews').innerHTML=revs.map(r=>`
+    <div class="review-card">
+      <div class="reviewer-row">
+        <div class="reviewer-avatar">${r.init}</div>
+        <div><div class="reviewer-name">${r.name}</div><div class="stars">${star(r.stars)}</div></div>
+        <div class="review-date">${r.date}</div>
+      </div>
+      <div class="review-text">${r.text}</div>
+    </div>
+  `).join('');
+  showPage('profile');
+}
+
+function goAdmin(){adminLoggedIn?showPage('admin'):showPage('admin-login');}
+
+function doLogin(){
+  const em=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-error');
+  if(em===ADMIN_EMAIL&&pw===ADMIN_PASS){
+    adminLoggedIn=true; err.style.display='none';
+    document.getElementById('login-email').value='';
+    document.getElementById('login-pass').value='';
+    buildChart(); showPage('admin');
+  } else {
+    err.style.display='block';
+    document.getElementById('login-pass').value='';
+  }
+}
+
+function doLogout(){adminLoggedIn=false;showPage('admin-login');}
+
+function goStep(n){
+  if(n===2){
+    const fn=document.getElementById('r-firstname').value.trim();
+    const ln=document.getElementById('r-lastname').value.trim();
+    const ph=document.getElementById('r-phone').value.trim();
+    const lo=document.getElementById('r-location').value.trim();
+    const ca=document.getElementById('r-category').value;
+    const bi=document.getElementById('r-bio').value.trim();
+    if(!fn||!ln||!ph||!lo||!ca||bi.length<20){alert('Please fill in all required fields (bio must be at least 50 characters).');return;}
+  }
+  if(n===4){
+    const fn=document.getElementById('r-firstname').value.trim();
+    const ln=document.getElementById('r-lastname').value.trim();
+    const ca=document.getElementById('r-category').value;
+    const lo=document.getElementById('r-location').value.trim();
+    const svcList=addedServices.length?addedServices.map(s=>`${s.name} (${s.price})`).join(', '):'None added';
+    document.getElementById('review-summary').innerHTML=`
+      <p><strong>Full name:</strong> ${fn} ${ln}</p>
+      <p><strong>Category:</strong> ${ca}</p>
+      <p><strong>Location:</strong> ${lo}</p>
+      <p><strong>Phone:</strong> ${document.getElementById('r-phone').value}</p>
+      <p><strong>Services:</strong> ${svcList}</p>
+      <p><strong>ID number:</strong> ${document.getElementById('r-idnum').value||'Not provided'}</p>
+    `;
+  }
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('reg-step-'+i);
+    if(el) el.style.display=i===n?'block':'none';
+    const sn=document.getElementById('snum-'+i);
+    const sl=document.getElementById('slbl-'+i);
+    if(sn){sn.className='step-num'+(i<n?' done':i===n?' active':'');sl.className='step-label'+(i===n?' active':'');}
+  }
+  window.scrollTo(0,0);
+}
+
+function addService(){
+  const name=document.getElementById('svc-name').value.trim();
+  const price=document.getElementById('svc-price').value.trim();
+  if(!name||!price) return;
+  addedServices.push({name,price});
+  renderServiceTags();
+  document.getElementById('svc-name').value='';
+  document.getElementById('svc-price').value='';
+}
+
+function renderServiceTags(){
+  const c=document.getElementById('services-tags');
+  if(!addedServices.length){c.innerHTML='<span style="font-size:.78rem;color:var(--muted)">No services added yet</span>';return;}
+  c.innerHTML=addedServices.map((s,i)=>`<span class="svc-tag">${s.name} · ${s.price}<button onclick="removeService(${i})">×</button></span>`).join('');
+}
+
+function removeService(i){addedServices.splice(i,1);renderServiceTags();}
+
+function showPreview(id){
+  const file=document.getElementById(id).files[0];
+  if(!file) return;
+  document.getElementById('prevname-'+id).textContent=file.name;
+  document.getElementById('prev-'+id).style.display='flex';
+}
+
+function submitReg(){
+  if(!document.getElementById('agree-terms').checked||!document.getElementById('agree-dpa').checked){alert('Please accept both consent checkboxes to submit.');return;}
+  document.getElementById('success-ref').textContent='REF: TS-2024-'+(Math.floor(Math.random()*900)+100);
+  document.getElementById('reg-form-wrap').style.display='none';
+  document.getElementById('reg-success').style.display='block';
+  addedServices=[];
+}
+
+function approveVerif(btn){
+  const item=btn.closest('.verif-item');
+  item.querySelector('.status-dot').className='status-dot dot-verified';
+  btn.textContent='✓ Approved'; btn.style.background='var(--green-dark)'; btn.disabled=true;
+  item.querySelector('.btn-reject').disabled=true; item.querySelector('.btn-reject').style.opacity='.4';
+  pendingCount=Math.max(0,pendingCount-1);
+  document.getElementById('queue-badge').textContent=pendingCount+' pending';
+  document.getElementById('queue-badge2').textContent=pendingCount;
+}
+
+function rejectVerif(btn){
+  const item=btn.closest('.verif-item');
+  item.querySelector('.status-dot').className='status-dot dot-rejected';
+  btn.textContent='✗ Rejected'; btn.style.borderColor='var(--red)'; btn.style.color='var(--red)'; btn.disabled=true;
+  item.querySelector('.btn-approve').disabled=true; item.querySelector('.btn-approve').style.opacity='.4';
+  pendingCount=Math.max(0,pendingCount-1);
+  document.getElementById('queue-badge').textContent=pendingCount+' pending';
+  document.getElementById('queue-badge2').textContent=pendingCount;
+}
+
+function setAdminNav(el){document.querySelectorAll('.admin-nav-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');}
+
+function buildChart(){
+  const data=[8,14,11,19,23,17,26,21,18,29,24,31];
+  const labels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const max=Math.max(...data);
+  document.getElementById('admin-chart').innerHTML=data.map((v,i)=>`<div class="bar" style="height:${Math.round((v/max)*100)}%;background:${i===11?'var(--green)':'var(--green-light)'}" title="${labels[i]}: ${v}"></div>`).join('');
+  document.getElementById('admin-chart-labels').innerHTML=labels.map(l=>`<div class="cl">${l}</div>`).join('');
+}
+
+function switchProfileTab(el){document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');}
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const map={search:0,register:1};
+  if(map[name]!==undefined) document.querySelectorAll('.nav-tab')[map[name]].classList.add('active');
+  if(name==='admin'||name==='admin-login') document.querySelectorAll('.nav-tab')[2].classList.add('active');
+  window.scrollTo(0,0);
+}
+
+renderProviders(providers);
+</script>
+</body>
+</html>

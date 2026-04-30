@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TrustedService Kenya</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/styles.css"/>
+
+  <!--
+    Token bridge: tokens.js uses ES module exports but HTML onclick=""
+    handlers need synchronous access. We expose avatarColor & bannerGradient
+    on a tiny global so Profile can use them without a full module refactor.
+  -->
+  <script type="module">
+    import { avatarColor, bannerGradient } from "./data/tokens.js";
+    window.__tokens__ = { avatarColor, bannerGradient };
+  </script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     NAVIGATION
+     ═══════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <div class="nav-top">
+    <div class="nav-logo" onclick="App.showPage('search')">
+      <div class="dot"></div>
+      <span class="t1">Trusted</span><span class="t2">Service</span>
+    </div>
+  </div>
+  <div class="nav-scroll">
+    <button class="nav-link active" onclick="App.showPage('search')">🔍 Discover</button>
+    <button class="nav-link"        onclick="App.showPage('register')">✨ Join as Provider</button>
+    <button class="nav-link"        onclick="App.goDash()">🎛 My Dashboard</button>
+    <button class="nav-link"        onclick="App.goAdmin()">⚙️ Admin</button>
+  </div>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     SEARCH / DISCOVER PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page active" id="page-search">
+
+  <div class="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-glow2"></div>
+    <div class="hero-tag">🇰🇪 Serving Nairobi &amp; beyond</div>
+    <h1>Find <em>trusted</em> service<br>providers near you</h1>
+    <p>Verified profiles, real reviews and a trust score — so you always know who you're hiring.</p>
+    <div class="search-wrap">
+      <input type="text" id="search-input" placeholder="Try: laundry, cleaning, electrician…"/>
+      <button onclick="App.Search.doSearch()">Search</button>
+    </div>
+  </div>
+
+  <!-- Category pills rendered by Search.init() -->
+  <div class="cats" id="cat-bar"></div>
+
+  <div class="section-bar">
+    <div>
+      <div class="section-title">Top providers</div>
+      <div class="section-sub" id="result-count-text">Loading…</div>
+    </div>
+    <div class="see-all">Sort by trust ↓</div>
+  </div>
+
+  <!-- Provider cards rendered by Search.renderProviders() -->
+  <div class="cards-grid" id="providers-grid"></div>
+
+</div><!-- /page-search -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PROVIDER PROFILE PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-profile">
+
+  <div class="profile-hero">
+    <div class="profile-banner" id="prof-banner">
+      <div class="profile-banner-overlay"></div>
+      <button class="profile-back" onclick="App.showPage('search')">← Back</button>
+    </div>
+    <div class="profile-info">
+      <div class="profile-av" id="prof-avatar">MW</div>
+      <div class="profile-meta">
+        <div class="profile-name" id="prof-name"></div>
+        <div class="profile-role" id="prof-role"></div>
+        <div class="profile-pills">
+          <span class="mpill green">✓ Verified</span>
+          <span class="mpill" id="prof-location">📍 —</span>
+          <span class="mpill">⭐ <span id="prof-rating">—</span></span>
+        </div>
+      </div>
+      <div class="trust-ring">
+        <div class="trust-big" id="prof-trust">—</div>
+        <div class="trust-lbl">Trust Score</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-actions">
+    <button class="btn-primary">📲 Book Now</button>
+    <button class="btn-outline">💬 Message</button>
+    <button class="btn-outline">🔗 Share</button>
+  </div>
+
+  <div class="profile-tabs">
+    <button class="ptab active" onclick="App.switchPTab(this,'ptab-overview')">Overview</button>
+    <button class="ptab"        onclick="App.switchPTab(this,'ptab-reviews')">Reviews</button>
+    <button class="ptab"        onclick="App.switchPTab(this,'ptab-services')">Services &amp; Pricing</button>
+  </div>
+
+  <div class="profile-body">
+
+    <!-- Main column -->
+    <div>
+      <!-- Overview tab -->
+      <div id="ptab-overview">
+        <div class="about-card">
+          <div class="about-title">About</div>
+          <div class="about-text" id="prof-bio"></div>
+        </div>
+        <div class="about-card">
+          <div class="about-title">Top reviews</div>
+          <div id="prof-reviews-preview"></div>
+        </div>
+      </div>
+
+      <!-- Reviews tab -->
+      <div id="ptab-reviews" style="display:none">
+        <div class="about-card">
+          <div class="about-title">All reviews</div>
+          <div id="prof-reviews-all"></div>
+        </div>
+      </div>
+
+      <!-- Services & Pricing tab -->
+      <div id="ptab-services" style="display:none">
+        <div class="about-card">
+          <div class="about-title">Services &amp; Pricing</div>
+          <div class="svc-grid" id="prof-services-list"></div>
+        </div>
+      </div>
+    </div><!-- /main column -->
+
+    <!-- Sidebar -->
+    <div>
+      <div class="sidebar-widget">
+        <div class="sw-title">Trust breakdown</div>
+        <div class="tbar-row">
+          <div class="tbar-meta"><span>Reviews</span><span id="tb-r">4.8/5</span></div>
+          <div class="tbar"><div class="tbar-fill" style="width:96%"></div></div>
+        </div>
+        <div class="tbar-row">
+          <div class="tbar-meta"><span>Reliability</span><span>98%</span></div>
+          <div class="tbar"><div class="tbar-fill" style="width:98%"></div></div>
+        </div>
+        <div class="tbar-row">
+          <div class="tbar-meta"><span>Response rate</span><span>88%</span></div>
+          <div class="tbar"><div class="tbar-fill" style="width:88%"></div></div>
+        </div>
+      </div>
+
+      <div class="sidebar-widget">
+        <button class="book-btn">📲 Book Now</button>
+        <div style="text-align:center;margin-top:.45rem;font-size:.7rem;color:var(--text3)">
+          Typically replies in 2 hours
+        </div>
+      </div>
+
+      <div class="sidebar-widget">
+        <div class="sw-title">QR Trust Badge</div>
+        <div class="qr-wrap">
+          <div class="qr-box">
+            <div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div>
+            <div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div>
+            <div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div>
+            <div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div>
+            <div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div>
+            <div class="qc"></div><div class="qc w"></div><div class="qc w"></div><div class="qc"></div><div class="qc w"></div><div class="qc w"></div><div class="qc"></div>
+            <div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qc w"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div>
+          </div>
+          <div class="qr-sub">Scan to verify this provider</div>
+        </div>
+      </div>
+    </div><!-- /sidebar -->
+
+  </div><!-- /profile-body -->
+</div><!-- /page-profile -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     REGISTRATION PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-register">
+
+  <div class="reg-hero">
+    <h1>Join as a <em>provider</em></h1>
+    <p>Build your verified profile and get discovered by clients across Nairobi.</p>
+  </div>
+
+  <!-- Step progress bar -->
+  <div class="reg-steps">
+    <div class="rstep">
+      <div class="rstep-num active" id="sn1">1</div>
+      <div class="rstep-lbl active" id="sl1">Personal info</div>
+    </div>
+    <div class="rstep-arrow">›</div>
+    <div class="rstep">
+      <div class="rstep-num" id="sn2">2</div>
+      <div class="rstep-lbl" id="sl2">Services</div>
+    </div>
+    <div class="rstep-arrow">›</div>
+    <div class="rstep">
+      <div class="rstep-num" id="sn3">3</div>
+      <div class="rstep-lbl" id="sl3">Verify ID</div>
+    </div>
+    <div class="rstep-arrow">›</div>
+    <div class="rstep">
+      <div class="rstep-num" id="sn4">4</div>
+      <div class="rstep-lbl" id="sl4">Submit</div>
+    </div>
+  </div>
+
+  <div id="reg-form-wrap">
+
+    <!-- ── Step 1: Personal info ── -->
+    <div id="rs1" class="reg-body">
+      <div class="rcard">
+        <div class="rcard-title">
+          <div class="rcard-icon" style="background:rgba(139,92,246,.15);color:var(--purple)">👤</div>
+          Personal information
+        </div>
+        <div class="rg">
+          <div class="fl">
+            <label>First name <span class="req">*</span></label>
+            <input class="fi" type="text" id="r-fn" placeholder="e.g. Mary"/>
+          </div>
+          <div class="fl">
+            <label>Last name <span class="req">*</span></label>
+            <input class="fi" type="text" id="r-ln" placeholder="e.g. Wanjiku"/>
+          </div>
+          <div class="fl">
+            <label>Phone number <span class="req">*</span></label>
+            <input class="fi" type="tel" id="r-ph" placeholder="07XX XXX XXX"/>
+          </div>
+          <div class="fl">
+            <label>Email address</label>
+            <input class="fi" type="email" id="r-em" placeholder="your@email.com"/>
+          </div>
+          <div class="fl">
+            <label>Location / Area <span class="req">*</span></label>
+            <input class="fi" type="text" id="r-loc" placeholder="e.g. Westlands, Nairobi"/>
+          </div>
+          <div class="fl">
+            <label>Service category <span class="req">*</span></label>
+            <select class="fi" id="r-cat">
+              <option value="">Select…</option>
+              <option>Laundry</option>
+              <option>Cleaning</option>
+              <option>Tailoring</option>
+              <option>Plumbing</option>
+              <option>Electrical</option>
+              <option>Childcare</option>
+              <option>Beauty</option>
+              <option>Barber</option>
+              <option>Massage</option>
+              <option>Tattoo</option>
+              <option>Cooking</option>
+              <option>Gardening</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="fl rg-full">
+            <label>Bio / About you <span class="req">*</span></label>
+            <textarea class="fi" id="r-bio" placeholder="Tell clients about your experience and specialties…"></textarea>
+            <div class="fi-hint">Be specific — it builds trust. Aim for at least 80 characters.</div>
+          </div>
+        </div>
+      </div>
+      <button class="rsub" onclick="App.Registration.goStep(2)">Continue to Services →</button>
+    </div>
+
+    <!-- ── Step 2: Services & pricing ── -->
+    <div id="rs2" class="reg-body" style="display:none">
+      <div class="rcard">
+        <div class="rcard-title">
+          <div class="rcard-icon" style="background:rgba(29,185,84,.1);color:var(--green)">💼</div>
+          Services &amp; pricing
+        </div>
+        <div class="fl" style="margin-bottom:1rem">
+          <label>Add a service with price <span class="req">*</span></label>
+          <div class="svc-adder">
+            <input class="fi" type="text" id="svc-n" placeholder="e.g. Wash &amp; fold"/>
+            <input class="fi" type="text" id="svc-p" placeholder="KSh 50/kg" style="max-width:125px"/>
+            <button class="add-btn" onclick="App.Registration.addSvc()">+ Add</button>
+          </div>
+          <div class="stags" id="stags">
+            <span style="font-size:.76rem;color:var(--text4)">No services added yet</span>
+          </div>
+        </div>
+        <div class="fl" style="margin-top:1rem">
+          <label>Availability</label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:.45rem;margin-top:.3rem">
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Mon</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Tue</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Wed</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Thu</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Fri</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Sat</label>
+            <label style="display:flex;align-items:center;gap:.35rem;font-size:.83rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--purple)"/> Sun</label>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.65rem">
+        <button class="rsub rsub-back" onclick="App.Registration.goStep(1)">← Back</button>
+        <button class="rsub"           onclick="App.Registration.goStep(3)">Continue to ID Verification →</button>
+      </div>
+    </div>
+
+    <!-- ── Step 3: Identity verification ── -->
+    <div id="rs3" class="reg-body" style="display:none">
+      <div class="rcard">
+        <div class="rcard-title">
+          <div class="rcard-icon" style="background:rgba(247,201,72,.1);color:var(--gold)">🪪</div>
+          Identity verification
+        </div>
+        <p style="font-size:.83rem;color:var(--text3);margin-bottom:1.1rem;line-height:1.65">
+          Documents are reviewed within 24 hours and stored under the
+          <strong style="color:var(--text2)">Kenya Data Protection Act (2019)</strong>.
+        </p>
+        <div class="rg">
+          <div class="fl rg-full">
+            <label>National ID / Passport number <span class="req">*</span></label>
+            <input class="fi" type="text" id="r-id" placeholder="e.g. 12345678"/>
+          </div>
+          <div class="fl rg-full">
+            <label>Upload ID document (front) <span class="req">*</span></label>
+            <div class="upload-zone" onclick="document.getElementById('uf1').click()">
+              <div class="uz-icon">🪪</div>
+              <div class="uz-text">Drag &amp; drop or <strong>click to browse</strong></div>
+              <div class="uz-text" style="margin-top:2px;font-size:.7rem">JPG, PNG or PDF · Max 5MB</div>
+            </div>
+            <div class="uprev" id="up1">
+              <span>✅</span>
+              <span class="uprev-name" id="upn1"></span>
+            </div>
+            <input type="file" id="uf1" style="display:none" accept=".jpg,.jpeg,.png,.pdf"
+              onchange="App.Registration.showUpload('uf1','up1','upn1')"/>
+          </div>
+          <div class="fl rg-full">
+            <label>Selfie with ID (recommended)</label>
+            <div class="upload-zone" onclick="document.getElementById('uf2').click()">
+              <div class="uz-icon">🤳</div>
+              <div class="uz-text">Drag &amp; drop or <strong>click to browse</strong></div>
+              <div class="uz-text" style="margin-top:2px;font-size:.7rem">JPG or PNG · Max 5MB</div>
+            </div>
+            <div class="uprev" id="up2">
+              <span>✅</span>
+              <span class="uprev-name" id="upn2"></span>
+            </div>
+            <input type="file" id="uf2" style="display:none" accept=".jpg,.jpeg,.png"
+              onchange="App.Registration.showUpload('uf2','up2','upn2')"/>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.65rem">
+        <button class="rsub rsub-back" onclick="App.Registration.goStep(2)">← Back</button>
+        <button class="rsub"           onclick="App.Registration.goStep(4)">Review application →</button>
+      </div>
+    </div>
+
+    <!-- ── Step 4: Review & submit ── -->
+    <div id="rs4" class="reg-body" style="display:none">
+      <div class="rcard">
+        <div class="rcard-title">
+          <div class="rcard-icon" style="background:rgba(59,130,246,.1);color:var(--blue)">📋</div>
+          Review your application
+        </div>
+        <!-- Summary populated by Registration.goStep(4) -->
+        <div id="rev-summary" style="font-size:.85rem;color:var(--text2);line-height:2"></div>
+      </div>
+      <div class="rcard">
+        <div class="fl" style="margin-bottom:.7rem">
+          <div class="chk-row">
+            <input type="checkbox" id="agr1"/>
+            <label class="chk-lbl" for="agr1">
+              I agree to the <a href="#">Terms of Service</a> and confirm all information is accurate.
+            </label>
+          </div>
+        </div>
+        <div class="fl">
+          <div class="chk-row">
+            <input type="checkbox" id="agr2"/>
+            <label class="chk-lbl" for="agr2">
+              I consent to data processing under the <a href="#">Kenya Data Protection Act (2019)</a>.
+            </label>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.65rem">
+        <button class="rsub rsub-back" onclick="App.Registration.goStep(3)">← Back</button>
+        <button class="rsub"           onclick="App.Registration.submit()">✓ Submit application</button>
+      </div>
+    </div>
+
+  </div><!-- /reg-form-wrap -->
+
+  <!-- Success screen (hidden until submit) -->
+  <div id="reg-success" style="display:none;padding:.75rem">
+    <div class="success-wrap">
+      <span class="success-emoji">🎉</span>
+      <div class="success-h">Application submitted!</div>
+      <div class="success-p">
+        Your profile is under review. We'll verify your documents within 24 hours and send an SMS.
+        Once approved, you can manage your profile from the dashboard.
+      </div>
+      <div class="success-ref" id="sref">REF: TS-2024-0000</div><br/>
+      <button class="success-btn" onclick="App.showPage('provider-dash')">
+        Go to my dashboard →
+      </button>
+    </div>
+  </div>
+
+</div><!-- /page-register -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     PROVIDER DASHBOARD PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-provider-dash">
+
+  <div class="pd-hero">
+    <div class="pd-welcome">Welcome back 👋</div>
+    <div class="pd-name" id="pd-name">Mary Wanjiku</div>
+    <span class="pd-status">✓ Verified provider — manage your profile below</span>
+  </div>
+
+  <div class="pd-nav-scroll">
+    <button class="pd-nav-btn active" onclick="App.Dashboard.navTo(this,'pd-overview')">📊 Overview</button>
+    <button class="pd-nav-btn"        onclick="App.Dashboard.navTo(this,'pd-photos')">📸 Photos</button>
+    <button class="pd-nav-btn"        onclick="App.Dashboard.navTo(this,'pd-edit')">✏️ Edit profile</button>
+    <button class="pd-nav-btn"        onclick="App.Dashboard.navTo(this,'pd-services')">💼 Services &amp; pricing</button>
+    <button class="pd-nav-btn"        onclick="App.Dashboard.navTo(this,'pd-reviews')">⭐ My reviews</button>
+    <button class="pd-nav-btn"        onclick="App.Dashboard.navTo(this,'pd-settings')">⚙️ Settings</button>
+  </div>
+
+  <div class="pd-main">
+
+    <!-- ── Overview ── -->
+    <div class="pd-section active" id="pd-overview">
+      <div class="pd-metrics">
+        <div class="pdm"><div class="pdm-icon">⭐</div><div class="pdm-val">4.8</div><div class="pdm-lbl">Avg rating</div><div class="pdm-delta">↑ 0.2 this month</div></div>
+        <div class="pdm"><div class="pdm-icon">💼</div><div class="pdm-val">24</div><div class="pdm-lbl">Reviews</div><div class="pdm-delta">↑ 3 this week</div></div>
+        <div class="pdm"><div class="pdm-icon">🔮</div><div class="pdm-val">94</div><div class="pdm-lbl">Trust score</div><div class="pdm-delta">↑ 2 pts</div></div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Profile completion</div>
+        <div style="margin-bottom:.6rem">
+          <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--text2);margin-bottom:5px">
+            <span>Profile strength</span>
+            <span style="color:var(--green);font-weight:700">78%</span>
+          </div>
+          <div class="tbar"><div class="tbar-fill" style="width:78%"></div></div>
+        </div>
+        <div style="font-size:.82rem;color:var(--text3);line-height:1.9">
+          ✅ Bio added &nbsp; ✅ Services listed &nbsp; ✅ ID verified<br>
+          ⬜ Profile photo — <span style="color:var(--blue);cursor:pointer"
+            onclick="App.Dashboard.navTo(document.querySelectorAll('.pd-nav-btn')[1],'pd-photos')">Add now →</span><br>
+          ⬜ Work photos (3+) — <span style="color:var(--blue);cursor:pointer"
+            onclick="App.Dashboard.navTo(document.querySelectorAll('.pd-nav-btn')[1],'pd-photos')">Add now →</span>
+        </div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Recent reviews</div>
+        <div class="rev-card">
+          <div class="rev-top">
+            <div class="rev-av">JO</div>
+            <div><div class="rev-name">Jane Otieno</div><div class="rev-stars">★★★★★</div></div>
+            <div class="rev-date">3 days ago</div>
+          </div>
+          <div class="rev-text">Mary is absolutely reliable! My clothes always come back fresh and on time.</div>
+        </div>
+        <div class="rev-card">
+          <div class="rev-top">
+            <div class="rev-av">BK</div>
+            <div><div class="rev-name">Brian Kamau</div><div class="rev-stars">★★★★★</div></div>
+            <div class="rev-date">1 week ago</div>
+          </div>
+          <div class="rev-text">Same-day service saved me before a big meeting. Very professional.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Photos ── -->
+    <div class="pd-section" id="pd-photos">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:.4rem">Manage photos</div>
+      <div style="font-size:.83rem;color:var(--text3);margin-bottom:1.15rem">
+        Profiles with photos get 3× more bookings.
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Profile picture</div>
+        <div style="display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap">
+          <div id="pd-prof-pic"
+               style="width:84px;height:84px;border-radius:50%;
+                      background:linear-gradient(135deg,#1db954,#8b5cf6);
+                      display:flex;align-items:center;justify-content:center;
+                      font-weight:800;font-size:1.9rem;color:#fff;
+                      overflow:hidden;position:relative;flex-shrink:0">
+            <span id="pd-pp-init">MW</span>
+            <img id="pd-pp-img"
+                 style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"
+                 src="" alt=""/>
+          </div>
+          <div>
+            <div style="font-size:.85rem;color:var(--text2);margin-bottom:.55rem">
+              Your profile picture appears on your public profile and in search results.
+            </div>
+            <div style="display:flex;gap:.45rem;flex-wrap:wrap">
+              <button class="save-btn" style="font-size:.8rem;padding:.45rem 1.1rem"
+                onclick="document.getElementById('pp-upload').click()">📷 Upload photo</button>
+              <button class="btn-outline" style="font-size:.8rem;padding:.45rem 1.1rem"
+                onclick="App.Dashboard.removeProfilePic()">Remove</button>
+            </div>
+            <input type="file" id="pp-upload" style="display:none" accept="image/*"
+              onchange="App.Dashboard.handleProfilePic(this)"/>
+          </div>
+        </div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Work photos
+          <span style="color:var(--text3);font-weight:400;font-size:.72rem;margin-left:.4rem">Up to 6 photos</span>
+        </div>
+        <!-- Photo grid rendered by Dashboard.renderPhotoGrid() -->
+        <div class="photo-grid" id="photo-grid"></div>
+        <div style="font-size:.75rem;color:var(--text3)">Accepted: JPG, PNG · Max 5MB each</div>
+      </div>
+    </div>
+
+    <!-- ── Edit Profile ── -->
+    <div class="pd-section" id="pd-edit">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:1rem">Edit your profile</div>
+      <div class="edit-section">
+        <div class="edit-section-title">Basic information</div>
+        <div class="rg">
+          <div class="fl"><label>First name</label><input class="fi" type="text" id="e-fn" value="Mary"/></div>
+          <div class="fl"><label>Last name</label><input class="fi" type="text" id="e-ln" value="Wanjiku"/></div>
+          <div class="fl"><label>Phone number</label><input class="fi" type="tel" id="e-ph" value="0712 345 678"/></div>
+          <div class="fl"><label>Email</label><input class="fi" type="email" id="e-em" value="mary.w@gmail.com"/></div>
+          <div class="fl"><label>Location / Area</label><input class="fi" type="text" id="e-loc" value="Westlands, Nairobi"/></div>
+          <div class="fl">
+            <label>Category</label>
+            <select class="fi" id="e-cat">
+              <option selected>Laundry</option>
+              <option>Cleaning</option><option>Tailoring</option><option>Plumbing</option>
+              <option>Electrical</option><option>Childcare</option><option>Beauty</option>
+              <option>Barber</option><option>Massage</option><option>Tattoo</option>
+            </select>
+          </div>
+          <div class="fl rg-full">
+            <label>Bio</label>
+            <textarea class="fi" id="e-bio" style="min-height:100px">I have been providing professional laundry and ironing services in Westlands for over 5 years. I handle all fabric types with care and offer same-day turnaround.</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Availability</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:.45rem">
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"/> Mon</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"/> Tue</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"/> Wed</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"/> Thu</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" checked style="accent-color:var(--blue)"/> Fri</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--blue)"/> Sat</label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;cursor:pointer"><input type="checkbox" style="accent-color:var(--blue)"/> Sun</label>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.9rem;flex-wrap:wrap">
+        <button class="save-btn" onclick="App.Dashboard.saveProfile()">💾 Save changes</button>
+        <div class="saved-toast" id="saved-toast">✅ Profile updated!</div>
+      </div>
+    </div>
+
+    <!-- ── Services ── -->
+    <div class="pd-section" id="pd-services">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:1rem">Services &amp; pricing</div>
+      <div class="edit-section">
+        <div class="edit-section-title">Your services</div>
+        <!-- Rendered by Dashboard.renderServices() -->
+        <div id="pd-svc-list" style="margin-bottom:.9rem"></div>
+        <div class="edit-section-title" style="margin-top:.9rem">Add new service</div>
+        <div class="svc-adder" style="margin-bottom:0">
+          <input class="fi" type="text" id="pd-sn" placeholder="Service name"/>
+          <input class="fi" type="text" id="pd-sp" placeholder="Price" style="max-width:125px"/>
+          <button class="add-btn" onclick="App.Dashboard.addSvc()">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Reviews ── -->
+    <div class="pd-section" id="pd-reviews">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:1rem">My reviews</div>
+      <!-- Rendered by Dashboard.renderReviews() -->
+      <div id="pd-rev-list"></div>
+    </div>
+
+    <!-- ── Settings ── -->
+    <div class="pd-section" id="pd-settings">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:1rem">Account settings</div>
+      <div class="edit-section">
+        <div class="edit-section-title">Notifications</div>
+        <div style="display:flex;flex-direction:column;gap:.7rem">
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--text2);cursor:pointer">New booking request <input type="checkbox" checked style="accent-color:var(--blue)"/></label>
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--text2);cursor:pointer">New review posted <input type="checkbox" checked style="accent-color:var(--blue)"/></label>
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--text2);cursor:pointer">Profile verified <input type="checkbox" checked style="accent-color:var(--blue)"/></label>
+          <label style="display:flex;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--text2);cursor:pointer">SMS alerts <input type="checkbox" style="accent-color:var(--blue)"/></label>
+        </div>
+      </div>
+      <div class="edit-section">
+        <div class="edit-section-title">Account</div>
+        <div style="display:flex;gap:.65rem;flex-wrap:wrap">
+          <button class="save-btn" style="font-size:.84rem;padding:.58rem 1.3rem">Change password</button>
+          <button class="btn-outline"
+                  style="font-size:.84rem;padding:.58rem 1.3rem;border-color:rgba(230,57,70,.35);color:var(--red)"
+                  onclick="App.showPage('search')">Log out</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pd-main -->
+</div><!-- /page-provider-dash -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN LOGIN PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-admin-login">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="lc-mark">TS</div>
+      <div class="lc-title">Admin portal</div>
+      <div class="lc-sub">Trusted Service — Platform management</div>
+      <div class="lc-err" id="login-error">Incorrect email or password.</div>
+      <div class="lg">
+        <label>Email address</label>
+        <input type="email" id="login-email" placeholder="admin@trustedservice.co.ke"/>
+      </div>
+      <div class="lg">
+        <label>Password</label>
+        <input type="password" id="login-pass" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') App.Admin.doLogin()"/>
+      </div>
+      <button class="login-btn" onclick="App.Admin.doLogin()">Sign in →</button>
+      <div class="login-hint">Access restricted to authorised administrators only</div>
+    </div>
+  </div>
+</div><!-- /page-admin-login -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN DASHBOARD PAGE
+     ═══════════════════════════════════════════════════════ -->
+<div class="page" id="page-admin">
+
+  <div class="ad-header">
+    <div>
+      <div class="ad-title">Admin Dashboard</div>
+      <div class="ad-sub">michaelvincentnyak@gmail.com</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="ad-badge" id="q-badge">3 pending</span>
+      <button class="logout-btn" onclick="App.Admin.doLogout()">Log out</button>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--green);
+                  display:flex;align-items:center;justify-content:center;
+                  color:#000;font-weight:800;font-size:.76rem">MV</div>
+    </div>
+  </div>
+
+  <div class="ad-nav-scroll">
+    <button class="ad-nav-btn active" onclick="App.Admin.navTo(this)">📊 Overview</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">✅ Verification queue</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">👥 Providers</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">⭐ Reviews</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">🚩 Reports</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">📈 Analytics</button>
+    <button class="ad-nav-btn"        onclick="App.Admin.navTo(this)">⚙️ Settings</button>
+  </div>
+
+  <div class="ad-main">
+
+    <!-- Metrics — rendered by Admin.buildMetrics() -->
+    <div class="ad-metrics" id="ad-metrics-grid"></div>
+
+    <!-- Verification queue -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          Verification queue
+          <span class="ad-badge" style="font-size:.66rem" id="q-badge2">3</span>
+        </div>
+        <div class="panel-act">View all →</div>
+      </div>
+      <!-- Items rendered by Admin.buildQueue() -->
+      <div id="verif-q"></div>
+    </div>
+
+    <!-- Recent providers table -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Recent providers</div>
+        <div class="panel-act">View all 247 →</div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Rating</th>
+              <th>Trust</th>
+              <th>Status</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <!-- Rows rendered by Admin.buildTable() -->
+          <tbody id="admin-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Registration chart -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Registrations 2024</div>
+      </div>
+      <!-- Built by Admin.buildChart() -->
+      <div class="chart-bars" id="chart-bars"></div>
+      <div class="clabels"    id="chart-labels"></div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Recent alerts</div>
+        <div class="panel-act">Clear all</div>
+      </div>
+      <!-- Rendered by Admin.buildAlerts() -->
+      <div id="admin-alerts"></div>
+    </div>
+
+  </div><!-- /ad-main -->
+</div><!-- /page-admin -->
+
+
+<!-- ES module entry point -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

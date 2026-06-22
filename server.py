@@ -36,6 +36,7 @@ def init_db():
         id_number TEXT, status TEXT DEFAULT 'pending',
         trust_score INTEGER DEFAULT 0, rating REAL DEFAULT 0.0,
         review_count INTEGER DEFAULT 0, jobs_done INTEGER DEFAULT 0,
+        reliability REAL DEFAULT 0.0,
         profile_photo TEXT DEFAULT '', work_photos_json TEXT DEFAULT '[]',
         ref_code TEXT,
         submitted_at TEXT DEFAULT (datetime('now')), approved_at TEXT
@@ -204,6 +205,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                                     LEFT JOIN providers p ON p.id=b.provider_id
                                     WHERE b.status='pending' AND b.accepted=1
                                     ORDER BY b.created_at DESC""").fetchall()
+            conn.close()
+            respond(self, [dict(r) for r in rows]); return
+
+        # Client bookings by phone number — for booking/service status page
+        if path.startswith('/api/bookings/client/'):
+            from urllib.parse import unquote
+            phone = unquote(path.split('/api/bookings/client/')[-1])
+            conn = get_db()
+            rows = conn.execute("""
+                SELECT b.*, p.first_name||' '||p.last_name as provider_name
+                FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id
+                WHERE b.client_phone=? ORDER BY b.created_at DESC
+            """, (phone,)).fetchall()
             conn.close()
             respond(self, [dict(r) for r in rows]); return
 
@@ -481,48 +495,85 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 (pid, phone)).fetchone()
             if not booking:
                 conn.close()
-                respond(self, {'error':'Reviews can only be left after a completed booking with this provider. If your service is done, ask the provider to mark your booking as completed.'}, 403)
+                respond(self, {'error':'Reviews can only be left after a completed booking with this provider.'}, 403)
                 return
 
-            # ── Suspicious pattern detection — flag for admin review, never block the user ──
+            # ── Suspicious pattern detection ──
             flags = []
             booking_row = conn.execute(
                 "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
                 (pid, phone)).fetchone()
             if booking_row:
                 created = conn.execute("SELECT (strftime('%s','now') - strftime('%s',?)) as secs", (booking_row[0],)).fetchone()[0]
-                if created is not None and created < 600:  # booking marked completed less than 10 min ago
+                if created is not None and created < 600:
                     flags.append("Review submitted within 10 minutes of booking being marked completed")
             same_phone_count = conn.execute(
                 "SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')",
                 (phone,)).fetchone()[0]
             if same_phone_count and same_phone_count >= 3:
-                flags.append(f"This phone number has booked {same_phone_count} different providers in the last 24 hours")
+                flags.append(f"Phone booked {same_phone_count} different providers in last 24h")
             recent_5star = conn.execute(
                 "SELECT COUNT(*) FROM reviews WHERE provider_id=? AND stars=5 AND created_at > datetime('now','-1 day')",
                 (pid,)).fetchone()[0]
             if recent_5star and recent_5star >= 5:
-                flags.append(f"This provider has received {recent_5star+1} five-star reviews in the last 24 hours")
+                flags.append(f"Provider received {recent_5star+1} five-star reviews in last 24h")
 
             rid = str(uuid.uuid4())
             conn.execute("INSERT INTO reviews (id,provider_id,reviewer_name,stars,text) VALUES (?,?,?,?,?)",
                          (rid, pid, name, stars, text))
-            # recalculate rating average
+
+            # Recalculate rating average
             rows = conn.execute("SELECT stars FROM reviews WHERE provider_id=?",(pid,)).fetchall()
             avg = round(sum(r[0] for r in rows)/len(rows), 1) if rows else 0
-            conn.execute("UPDATE providers SET rating=?, review_count=? WHERE id=?",(avg, len(rows), pid))
+
+            # ── Dynamic trust score (max 98) ──
+            # Starts at 75 on approval. Each review moves it:
+            # 5★ → +2, 4★ → +1, 3★ → -1, 2★ → -3, 1★ → -5
+            delta = {5:2, 4:1, 3:-1, 2:-3, 1:-5}.get(stars, 0)
+            cur_ts = conn.execute("SELECT trust_score FROM providers WHERE id=?",(pid,)).fetchone()
+            cur_ts = cur_ts[0] if cur_ts else 75
+            new_ts = max(0, min(98, cur_ts + delta))
+
+            # ── Reliability score = (accepted + completed) / total_received * 100 ──
+            total_bk = conn.execute("SELECT COUNT(*) FROM bookings WHERE provider_id=?",(pid,)).fetchone()[0]
+            accepted_bk = conn.execute("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND (accepted=1 OR status='completed')",(pid,)).fetchone()[0]
+            reliability = round((accepted_bk / total_bk * 100), 1) if total_bk > 0 else 0
+
+            conn.execute("UPDATE providers SET rating=?, review_count=?, trust_score=?, reliability=? WHERE id=?",
+                         (avg, len(rows), new_ts, reliability, pid))
+
+            # Alert admin for low-star reviews
+            if stars <= 2:
+                admin = conn.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()
+                if admin:
+                    prov = conn.execute("SELECT first_name,last_name FROM providers WHERE id=?",(pid,)).fetchone()
+                    pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
+                    conn.execute("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)",
+                                 (str(uuid.uuid4()), admin[0], pid, 'flagged',
+                                  f"⭐{stars} low rating for {pname} from {name} ({phone}). Immediate review recommended."))
 
             if flags:
                 admin = conn.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()
                 if admin:
                     prov = conn.execute("SELECT first_name,last_name FROM providers WHERE id=?",(pid,)).fetchone()
                     pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
-                    fmsg = f"🚩 Suspicious review activity for {pname}: " + "; ".join(flags) + ". Please review manually."
+                    fmsg = f"🚩 Suspicious review for {pname}: " + "; ".join(flags)
                     conn.execute("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)",
                                  (str(uuid.uuid4()), admin[0], pid, 'flagged', fmsg))
 
             conn.commit(); conn.close()
-            respond(self, {'success':True, 'new_rating': avg, 'review_count': len(rows)}); return
+            respond(self, {'success':True, 'new_rating': avg, 'review_count': len(rows), 'trust_score': new_ts}); return
+
+        if path == '/api/notifications':
+            uid  = body.get('user_id','admin-001')
+            typ  = body.get('type','info')
+            msg  = body.get('message','')
+            pid  = body.get('provider_id','')
+            conn = get_db()
+            conn.execute("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)",
+                         (str(uuid.uuid4()), uid, pid, typ, msg))
+            conn.commit(); conn.close()
+            respond(self, {'success':True}); return
 
         if path == '/api/notifications/read':
             nid = body.get('notification_id')

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>TrustedService Kenya</title>
+<title>Trusty-Ka</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);--green:#1db954;--green2:#1ed760;--red:#e63946;--gold:#f7c948;--purple:#8b5cf6;--blue:#3b82f6;--text:#fff;--text2:rgba(255,255,255,.7);--text3:rgba(255,255,255,.4);--text4:rgba(255,255,255,.2);--r:12px;--rlg:18px;--rxl:24px}
@@ -51,9 +51,13 @@ html,body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text)
 .hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(29,185,84,.12);border:1px solid rgba(29,185,84,.25);border-radius:30px;padding:5px 14px;font-size:.76rem;font-weight:600;color:var(--green);margin-bottom:1.1rem}
 .hero-tag::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
-.hero h1{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:900;line-height:1.1;margin-bottom:.8rem;letter-spacing:-.03em;color:#fff}
-.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--green),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero p{font-size:.95rem;color:rgba(255,255,255,.75);margin-bottom:1.75rem;line-height:1.7}
+/* ── Force white text on dark-background sections regardless of light/dark mode ── */
+.hero,.hero *,.reg-hero,.reg-hero *,.pd-hero,.pd-hero *,.ad-top,.ad-top *{color:#fff !important}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--green),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent !important;background-clip:text;color:transparent !important}
+.hero h1{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:900;line-height:1.1;margin-bottom:.8rem;letter-spacing:-.03em}
+.hero p{font-size:.95rem;color:rgba(255,255,255,.75) !important;margin-bottom:1.75rem;line-height:1.7}
+.reg-hero p{color:rgba(255,255,255,.6) !important}
+.hero-tag{color:var(--green) !important}
 .logo span:not(.g){color:#fff}
 .s-wrap{display:flex;flex-direction:column;gap:8px;max-width:440px}
 .s-wrap input{background:var(--bg3);border:1.5px solid var(--border2);border-radius:40px;padding:.78rem 1.4rem;font-family:'Outfit',sans-serif;font-size:.93rem;color:var(--text);outline:none;transition:all .2s}
@@ -355,7 +359,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <h2 style="margin-bottom:.4rem">Booking Confirmed!</h2>
     <div id="bk-confirmed-name" style="font-size:.9rem;color:var(--text2);margin-bottom:1rem"></div>
     <div style="background:rgba(29,185,84,.08);border:1px solid rgba(29,185,84,.2);border-radius:var(--r);padding:.85rem;margin-bottom:.75rem;font-size:.83rem;color:var(--text2);text-align:left">
-      ✅ <strong>Tracked Job:</strong> This service is actively tracked by TrustedService Kenya.
+      ✅ <strong>Tracked Job:</strong> This service is actively tracked by Trusty-Ka.
     </div>
     <div style="background:var(--bg4);border-radius:var(--r);padding:.85rem;font-size:.82rem;color:var(--text3);text-align:left">
       ⭐ <strong>The Final Step:</strong> Once the work is done, remember to confirm completion and leave an honest rating. Your review is the core essence of our platform and protects other Kenyans!
@@ -415,7 +419,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <h2 style="margin-bottom:.5rem">⚠️ Unlock Direct Contact</h2>
     <p style="font-size:.83rem;color:var(--text2);margin-bottom:1rem">By unlocking this provider's direct phone number, you agree to take full responsibility for the engagement.</p>
     <div style="background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.2);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.8rem;font-size:.82rem;color:var(--text2);line-height:1.65">
-      🚫 <strong>No Platform Protection:</strong> Because this transaction is moving offline, TrustedService Kenya cannot moderate your agreement, track the job, or handle disputes.
+      🚫 <strong>No Platform Protection:</strong> Because this transaction is moving offline, Trusty-Ka cannot moderate your agreement, track the job, or handle disputes.
     </div>
     <div style="background:rgba(247,201,72,.08);border:1px solid rgba(247,201,72,.2);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.8rem;font-size:.82rem;color:var(--text2);line-height:1.65">
       🪙 <strong>Trust score:</strong> This action will result in the provider not getting ratings and reviews, which are the top priorities of the platform.
@@ -442,7 +446,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 
 <nav class="nav">
   <div class="nav-top">
-    <div class="logo" onclick="nav('search')"><div class="dot"></div><span>Trusted</span><span class="g">Service</span></div>
+    <div class="logo" onclick="nav('search')"><div class="dot"></div><span>Trusty</span><span class="g">-Ka</span></div>
     <div class="nav-r">
       <button class="mode-btn" id="mode-btn" onclick="toggleMode()" title="Toggle dark/light mode">🌙</button>
       <button class="notif-btn" id="notif-btn" onclick="openNotifModal()">🔔 <span id="notif-cnt"></span><div class="notif-red" id="notif-red"></div></button>
@@ -467,8 +471,8 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
         <h1><em>PATA "SERVICE"</em><br>POA 💪🙂‍↕️</h1>
         <p>Verified profiles, real reviews and a trust score — so you always know who you're hiring.</p>
         <div class="s-wrap">
-          <input type="text" id="location-input" placeholder="📍 Area / neighbourhood (e.g. Westlands, Kibera…)" oninput="doSearch()"/>
-          <input type="text" id="search-input" placeholder="Try: laundry, cleaning, electrician…" oninput="doSearch()"/>
+          <input type="text" id="location-input" placeholder="📍 Area / neighbourhood (e.g. Westlands, Kibera…)" onkeydown="if(event.key==='Enter')doSearch()"/>
+          <input type="text" id="search-input" placeholder="Try: laundry, cleaning, electrician…" onkeydown="if(event.key==='Enter')doSearch()"/>
           <button onclick="doSearch()">Search</button>
         </div>
       </div>
@@ -666,13 +670,13 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
       <div class="rcard">
         <div class="rcard-title" style="margin-bottom:.6rem">📜 Terms &amp; Conditions for Service Providers</div>
         <div id="tnc-box" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem;max-height:220px;overflow-y:auto;font-size:.8rem;color:var(--text2);line-height:1.7;margin-bottom:.8rem">
-          <p style="margin-bottom:.6rem"><strong>1. Verification &amp; Accuracy</strong><br/>You confirm that all information provided — including your name, phone number, location, services and National ID — is true and accurate. TrustedService Kenya may reject or remove any profile found to contain false information.</p>
+          <p style="margin-bottom:.6rem"><strong>1. Verification &amp; Accuracy</strong><br/>You confirm that all information provided — including your name, phone number, location, services and National ID — is true and accurate. Trusty-Ka may reject or remove any profile found to contain false information.</p>
           <p style="margin-bottom:.6rem"><strong>2. Identity &amp; Conduct</strong><br/>Your ID number is used solely to verify your identity before approval. You agree to conduct yourself professionally with all clients and to deliver the services listed on your profile honestly and to the best of your ability.</p>
-          <p style="margin-bottom:.6rem"><strong>3. Ratings &amp; Reviews</strong><br/>Clients may leave public star ratings and written reviews after booking your services. You agree not to attempt to manipulate, pay for, or falsify reviews. TrustedService Kenya reserves the right to remove reviews or profiles that violate this policy.</p>
-          <p style="margin-bottom:.6rem"><strong>4. Bookings</strong><br/>Booking requests sent through the platform are introductions between you and a potential client. TrustedService Kenya is not a party to, and does not guarantee, any agreement, payment, or service outcome between you and the client.</p>
-          <p style="margin-bottom:.6rem"><strong>5. Account Approval</strong><br/>Your profile will remain hidden from public search until reviewed and approved by an administrator. TrustedService Kenya may decline an application without obligation to give a reason, though reasons will typically be provided.</p>
+          <p style="margin-bottom:.6rem"><strong>3. Ratings &amp; Reviews</strong><br/>Clients may leave public star ratings and written reviews after booking your services. You agree not to attempt to manipulate, pay for, or falsify reviews. Trusty-Ka reserves the right to remove reviews or profiles that violate this policy.</p>
+          <p style="margin-bottom:.6rem"><strong>4. Bookings</strong><br/>Booking requests sent through the platform are introductions between you and a potential client. Trusty-Ka is not a party to, and does not guarantee, any agreement, payment, or service outcome between you and the client.</p>
+          <p style="margin-bottom:.6rem"><strong>5. Account Approval</strong><br/>Your profile will remain hidden from public search until reviewed and approved by an administrator. Trusty-Ka may decline an application without obligation to give a reason, though reasons will typically be provided.</p>
           <p style="margin-bottom:.6rem"><strong>6. Data Protection (Kenya DPA, 2019)</strong><br/>Your personal data — including your name, phone number, ID number and photos — is collected and stored solely to operate this platform, in line with the Kenya Data Protection Act (2019). You may request access to, correction of, or deletion of your data at any time.</p>
-          <p style="margin-bottom:.6rem"><strong>7. Account Suspension</strong><br/>TrustedService Kenya may suspend or remove any provider profile that receives repeated, verified complaints, violates these terms, or is found to be fraudulent.</p>
+          <p style="margin-bottom:.6rem"><strong>7. Account Suspension</strong><br/>Trusty-Ka may suspend or remove any provider profile that receives repeated, verified complaints, violates these terms, or is found to be fraudulent.</p>
           <p style="margin:0"><strong>8. Changes to These Terms</strong><br/>These terms may be updated from time to time. Continued use of your provider profile after changes are published constitutes acceptance of the updated terms.</p>
         </div>
         <div class="fl" style="margin-bottom:.7rem"><div class="chk-row"><input type="checkbox" id="agr1"/><label class="chk-lbl" for="agr1">I have read and agree to the Terms &amp; Conditions for Service Providers above, and confirm all information I have provided is accurate.</label></div></div>
@@ -836,7 +840,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <div class="lcard">
       <div class="lmark">TS</div>
       <div class="ltitle">Admin portal</div>
-      <div class="lsub">Trusted Service — Platform management</div>
+      <div class="lsub">Trusty-Ka — Platform management</div>
       <div class="lerr" id="login-err">Incorrect email or password.</div>
       <div class="lg"><label>Email address</label><input type="email" id="login-email" placeholder="admin@trustedservice.co.ke"/></div>
       <div class="lg"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
@@ -1065,7 +1069,7 @@ function doSearch(){
   const loc=(document.getElementById('location-input')||{}).value||'';
   loadProviders(S.activeCat||'',q,loc.trim());
 }
-document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+// Search on Enter is handled via onkeydown on the inputs directly
 
 /* ── Profile ── */
 async function openProfile(id){
@@ -1577,9 +1581,9 @@ function shareProfile(){
   if(!S.curProvider) return;
   const p=S.curProvider;
   const url=window.location.origin+'/#profile-'+p.id;
-  const text=`Found this cool ${p.category} provider on TrustedService Kenya — ${p.first_name} ${p.last_name} in ${p.location}. Check them out!\n${url}`;
+  const text=`Found this cool ${p.category} provider on Trusty-Ka — ${p.first_name} ${p.last_name} in ${p.location}. Check them out!\n${url}`;
   if(navigator.share){
-    navigator.share({title:'TrustedService Kenya',text,url}).catch(()=>{});
+    navigator.share({title:'Trusty-Ka',text,url}).catch(()=>{});
   } else {
     // Fallback: show share options
     const wa=`https://wa.me/?text=${encodeURIComponent(text)}`;

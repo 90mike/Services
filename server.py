@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TrustedService Kenya — Backend Server
+Trusty-Ka — Backend Server
 Run:  python3 server.py
 Open: http://localhost:8000
 
@@ -761,7 +761,7 @@ if __name__ == '__main__':
     server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     server.daemon_threads = True
     print(f"\n{'='*52}")
-    print(f"  TrustedService Kenya — Backend running")
+    print(f"  Trusty-Ka — Backend running")
     print(f"  Open: http://localhost:{PORT}")
     print(f"  Admin: michaelvincentnyak@gmail.com / Michael 009")
     print(f"{'='*52}\n")

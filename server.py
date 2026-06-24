@@ -638,11 +638,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not phone:
                 respond(self, {'error':'A phone number is required to verify your booking before leaving a review.'}, 400); return
             conn = get_db()
-            # Block providers from reviewing their own profile
-            tu = get_token_user(self)
-            if tu and tu['role']=='provider':
-                own = conn.execute(sql("SELECT id FROM providers WHERE id=? AND user_id=?"), (pid, tu['id'])).fetchone()
-                if own:
+            # Block self-review: check if this phone belongs to the provider being reviewed
+            provider_row = conn.execute(sql("SELECT phone, user_id FROM providers WHERE id=?"), (pid,)).fetchone()
+            if provider_row:
+                pr = dict(provider_row)
+                # Block by phone match (works for logged-out providers too)
+                if pr.get('phone') and pr['phone'].strip() == phone.strip():
+                    conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
+                # Also block by token (logged-in provider)
+                tu = get_token_user(self)
+                if tu and tu['role']=='provider' and pr.get('user_id') == tu['id']:
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
             # Require a completed booking with this phone number for this provider
             booking = conn.execute(

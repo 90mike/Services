@@ -1201,12 +1201,13 @@ function paintStars(hoverVal){
   });
 }
 function openReviewModal(pid, booking=null){
-  // Pre-fill phone from booking if available
   if(booking){
     const ph=document.getElementById('rv-phone');
     if(ph) ph.value=booking.client_phone||'';
   }
-  S.rvStars=5; paintStars();
+  S.rvStars=5;
+  initStarPicker(); // attach click/hover handlers every time modal opens
+  paintStars();
   document.getElementById('rv-modal').classList.add('show');
 }
 async function submitReview(){

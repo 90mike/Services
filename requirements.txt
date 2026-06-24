@@ -1,1 +1,1 @@
-# No external packages required - uses Python standard library only
+psycopg2-binary

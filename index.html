@@ -63,6 +63,8 @@ html,body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text)
 .s-wrap input{background:var(--bg3);border:1.5px solid var(--border2);border-radius:40px;padding:.78rem 1.4rem;font-family:'Outfit',sans-serif;font-size:.93rem;color:var(--text);outline:none;transition:all .2s}
 .s-wrap input::placeholder{color:var(--text3)}
 .s-wrap input:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(29,185,84,.1)}
+/* Search inputs must NEVER inherit white from hero - always use theme text color */
+body .s-wrap input, body.light-mode .s-wrap input{color:var(--text) !important}
 .s-wrap button{background:var(--green);border:none;border-radius:40px;padding:.82rem;font-family:'Outfit',sans-serif;font-weight:700;font-size:.95rem;color:#000;cursor:pointer}
 .s-wrap button:hover{background:var(--green2)}
 .cat-wrap{position:relative;overflow:hidden}
@@ -807,7 +809,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 <div class="page" id="page-provider-login">
   <div class="login-wrap">
     <div class="login-card">
-      <div class="lc-mark" style="background:var(--purple)">TS</div>
+      <div class="lc-mark" style="background:var(--purple)">TK</div>
       <div class="lc-title">Provider sign in</div>
       <div class="lc-sub">Sign in to manage your profile & bookings</div>
       <div class="lc-err" id="pl-error">Incorrect email or password.</div>
@@ -838,7 +840,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 <div class="page" id="page-admin-login">
   <div class="login-wrap">
     <div class="lcard">
-      <div class="lmark">TS</div>
+      <div class="lmark">TK</div>
       <div class="ltitle">Admin portal</div>
       <div class="lsub">Trusty-Ka — Platform management</div>
       <div class="lerr" id="login-err">Incorrect email or password.</div>
@@ -906,7 +908,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 const API=window.location.origin+'/api';
 const COLORS=['#1db954','#e63946','#8b5cf6','#e74c3c','#3b82f6','#ec4899','#16a085','#d35400','#e67e22','#2980b9','#c0392b','#8e44ad'];
 const BANNERS=['linear-gradient(135deg,#0d2b1a,#1a1a24)','linear-gradient(135deg,#1a0d0d,#1a1a24)','linear-gradient(135deg,#0d0d2b,#1a1a24)','linear-gradient(135deg,#1a1a0d,#1a1a24)','linear-gradient(135deg,#2b0d1a,#1a1a24)','linear-gradient(135deg,#0d1a2b,#1a1a24)','linear-gradient(135deg,#1a2b0d,#1a1a24)','linear-gradient(135deg,#2b1a0d,#1a1a24)'];
-let S={page:'search',user:null,provider:null,regSvcs:[],pdSvcs:[],workPhotos:[null,null,null,null,null,null],ppData:null,curProvider:null,adminLoggedIn:false};
+let S={page:'search',user:null,provider:null,regSvcs:[],pdSvcs:[],workPhotos:[null,null,null,null,null,null],ppData:null,curProvider:null,adminLoggedIn:false,activeCat:'',activeLoc:'',activeQ:''};
 
 function nav(page,push=true){
   S.page=page;
@@ -1063,11 +1065,31 @@ async function loadProviders(cat='',q='',loc=''){
       </div></div>`;
   }).join('');
 }
-function filterCat(el,cat){document.querySelectorAll('.cat').forEach(c=>c.classList.remove('active'));el.classList.add('active');doSearch();}
+function filterCat(el, cat){
+  document.querySelectorAll('.cat').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  if(cat==='All'){
+    // ALL — clear everything, show all providers
+    S.activeCat='';
+    S.activeLoc='';
+    S.activeQ='';
+    // Clear inputs too
+    const li=document.getElementById('location-input'); if(li) li.value='';
+    const si=document.getElementById('search-input'); if(si) si.value='';
+    loadProviders('','','');
+  } else {
+    S.activeCat=cat;
+    // Keep current location filter (rule B/D)
+    loadProviders(cat, S.activeQ||'', S.activeLoc||'');
+  }
+}
 function doSearch(){
-  const q=document.getElementById('search-input').value.trim();
+  const q=(document.getElementById('search-input')||{}).value||'';
   const loc=(document.getElementById('location-input')||{}).value||'';
-  loadProviders(S.activeCat||'',q,loc.trim());
+  S.activeQ=q.trim();
+  S.activeLoc=loc.trim();
+  // When searching by keyword, treat it as a category if it matches one
+  loadProviders(S.activeCat||'', S.activeQ, S.activeLoc);
 }
 // Search on Enter is handled via onkeydown on the inputs directly
 
@@ -1194,13 +1216,14 @@ async function submitReview(){
   const text=document.getElementById('rv-text').value.trim();
   if(!phone){showToast('Please enter the phone number you used for your booking','err');return;}
   if(!text){showToast('Please write a short review','err');return;}
+  // Mark booking complete FIRST (server requires status='completed' to allow review)
+  if(S.pendingReviewBid){
+    const completeRes=await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
+    if(!completeRes.success){showToast('Failed to mark booking complete','err');return;}
+  }
   const res=await api('/reviews','POST',{provider_id:S.curProvider.id,reviewer_name:name,client_phone:phone,stars:S.rvStars,text,booking_id:S.pendingReviewBid||null});
   if(res.error){showToast(res.error,'err');return;}
-  // If this review came from client marking job done — mark booking complete too
-  if(S.pendingReviewBid){
-    await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
-    S.pendingReviewBid=null;
-  }
+  if(S.pendingReviewBid) S.pendingReviewBid=null;
   closeModal('rv-modal');
   // Star color feedback
   if(S.rvStars>=4) showToast('🟢 Thank you! Great to hear!','ok',4000);

@@ -185,7 +185,20 @@ def get_token_user(handler):
         return {'id':p[0],'role':p[1],'email':p[2]}
     except: return None
 
+def fix_timestamps(obj):
+    """Normalize SQLite datetime strings (2026-06-23 14:30:00) to ISO 8601 (2026-06-23T14:30:00Z)"""
+    if isinstance(obj, dict):
+        return {k: fix_timestamps(v) if isinstance(v, str) and len(v)==19 and ' ' in v and v[10]==' '
+                else fix_timestamps(v) if isinstance(v, (dict, list)) else v
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [fix_timestamps(i) for i in obj]
+    if isinstance(obj, str) and len(obj)==19 and obj[10]==' ':
+        return obj.replace(' ', 'T') + 'Z'
+    return obj
+
 def respond(handler, data, status=200):
+    data = fix_timestamps(data)
     body = json.dumps(data, default=str).encode()
     handler.send_response(status)
     for k,v in [('Content-Type','application/json'),('Content-Length',len(body)),
@@ -221,7 +234,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # Server time endpoint — lets browser sync countdown with server clock
         if path == '/api/time':
             import datetime
-            respond(self, {'server_time': datetime.datetime.utcnow().isoformat() + 'Z'}); return
+            now = datetime.datetime.utcnow()
+            respond(self, {'server_time': now.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'}); return
 
         if path in ('/', '/index.html'):
             fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html')
@@ -594,7 +608,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             prow = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
             if prow:
                 p = dict(prow)
-                conn.execute(sql("UPDATE providers SET jobs_done=jobs_done+1 WHERE id=?"), (pid,))
+                # jobs_done is NOT incremented here — only when client submits a review
                 if p.get('user_id'):
                     msg = f"📲 New booking from {body.get('client_name','a client')} for {body.get('service','')} on {body.get('date','')}."
                     conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), p['user_id'], pid, 'booking', msg))
@@ -679,7 +693,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             accepted_bk = conn.execute(sql("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND (accepted=1 OR status='completed')"), (pid,)).fetchone()[0]
             reliability = round((accepted_bk / total_bk * 100), 1) if total_bk > 0 else 0
 
-            conn.execute(sql("UPDATE providers SET rating=?, review_count=?, trust_score=?, reliability=? WHERE id=?"), (avg, len(rows), new_ts, reliability, pid))
+            conn.execute(sql("UPDATE providers SET rating=?, review_count=?, trust_score=?, reliability=?, jobs_done=jobs_done+1 WHERE id=?"), (avg, len(rows), new_ts, reliability, pid))
 
             # Alert admin for low-star reviews
             if stars <= 2:

@@ -237,6 +237,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             now = datetime.datetime.utcnow()
             respond(self, {'server_time': now.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'}); return
 
+        # Admin: check for bookings that have been 'ongoing' for more than 24h
+        if path == '/api/admin/overstay-check':
+            conn = get_db()
+            rows = conn.execute(sql("""
+                SELECT b.*, p.first_name, p.last_name FROM bookings b
+                LEFT JOIN providers p ON p.id=b.provider_id
+                WHERE b.status='ongoing'
+                AND b.created_at < datetime('now','-1 day')
+            """)).fetchall()
+            conn.close()
+            respond(self, [dict(r) for r in rows]); return
+
         if path in ('/', '/index.html'):
             fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html')
             if os.path.exists(fp):
@@ -447,6 +459,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 conn.close()
                 respond(self, {'error':'This account has been removed from the platform by the administrator. Contact support for more information.'}, 403)
                 return
+            if u['role'] == 'suspended_provider':
+                conn.close()
+                respond(self, {'error':'Your account has been temporarily suspended by the administrator. Check your notifications or contact support.'}, 403)
+                return
             provider = None
             if u['role'] == 'provider':
                 prow = conn.execute(sql("SELECT * FROM providers WHERE user_id=?"), (u['id'],)).fetchone()
@@ -563,12 +579,65 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             respond(self, {'success': True}); return
 
+        # Admin suspends a provider (temporary)
+        if path == '/api/admin/suspend':
+            pid    = body.get('provider_id')
+            reason = body.get('reason', 'Your account has been temporarily suspended pending review.')
+            conn   = get_db()
+            prow   = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
+            if not prow:
+                conn.close(); respond(self, {'error': 'Provider not found'}, 404); return
+            p = dict(prow)
+            conn.execute(sql("UPDATE providers SET status='suspended' WHERE id=?"), (pid,))
+            if p.get('user_id'):
+                conn.execute(sql("UPDATE users SET role='suspended_provider' WHERE id=?"), (p['user_id'],))
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"),
+                             (str(uuid.uuid4()), p['user_id'], pid, 'suspended',
+                              f"⚠️ Your account has been temporarily suspended. Reason: {reason}. Contact support to resolve this."))
+            conn.commit(); conn.close()
+            respond(self, {'success': True}); return
+
+        # Admin unsuspends a provider (restores access)
+        if path == '/api/admin/unsuspend':
+            pid  = body.get('provider_id')
+            conn = get_db()
+            prow = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
+            if not prow:
+                conn.close(); respond(self, {'error': 'Provider not found'}, 404); return
+            p = dict(prow)
+            conn.execute(sql("UPDATE providers SET status='approved' WHERE id=?"), (pid,))
+            if p.get('user_id'):
+                conn.execute(sql("UPDATE users SET role='provider' WHERE id=?"), (p['user_id'],))
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"),
+                             (str(uuid.uuid4()), p['user_id'], pid, 'unsuspended',
+                              "✅ Your account suspension has been lifted. You can now log in and continue receiving bookings."))
+            conn.commit(); conn.close()
+            respond(self, {'success': True}); return
+
+        # Admin sends a warning message to a specific provider
+        if path == '/api/admin/warn':
+            pid     = body.get('provider_id')
+            message = body.get('message', '')
+            if not pid or not message:
+                respond(self, {'error': 'provider_id and message required'}, 400); return
+            conn = get_db()
+            prow = conn.execute(sql("SELECT user_id, first_name, last_name FROM providers WHERE id=?"), (pid,)).fetchone()
+            if not prow:
+                conn.close(); respond(self, {'error': 'Provider not found'}, 404); return
+            p = dict(prow)
+            if p.get('user_id'):
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"),
+                             (str(uuid.uuid4()), p['user_id'], pid, 'warning',
+                              f"⚠️ Admin Warning: {message}"))
+            conn.commit(); conn.close()
+            respond(self, {'success': True}); return
+
         if path == '/api/bookings/accept':
             bid = body.get('booking_id')
             conn = get_db()
             brow = conn.execute(sql("SELECT * FROM bookings WHERE id=?"), (bid,)).fetchone()
             if brow:
-                conn.execute(sql("UPDATE bookings SET accepted=1 WHERE id=?"), (bid,))
+                conn.execute(sql("UPDATE bookings SET accepted=1, status='ongoing' WHERE id=?"), (bid,))
                 conn.commit()
             conn.close()
             respond(self, {'success': True}); return
@@ -651,11 +720,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
             # Require a completed booking with this phone number for this provider
             booking = conn.execute(
-                "SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1",
+                "SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1",
                 (pid, phone)).fetchone()
             if not booking:
                 conn.close()
                 respond(self, {'error':'Reviews can only be left after a completed booking with this provider.'}, 403)
+                return
+            # Validate that the name matches the booking name (case-insensitive)
+            booking_dict = dict(booking)
+            booking_client_name = (booking_dict.get('client_name') or '').strip().lower()
+            submitted_name = name.strip().lower()
+            if booking_client_name and submitted_name and booking_client_name != submitted_name:
+                conn.close()
+                respond(self, {'error': f'The name you entered does not match the name used when booking. Please use the exact name from your booking.'}, 403)
                 return
 
             # ── Suspicious pattern detection ──

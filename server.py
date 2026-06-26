@@ -176,14 +176,56 @@ def init_db():
     print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}")
 
 def hp(pw): return hashlib.sha256(pw.encode()).hexdigest()
-def mk_token(uid,role,email): return base64.b64encode(f"{uid}:{role}:{email}".encode()).decode()
+
+# Server secret — tokens are signed with this so they can't be forged
+# On Render, set TOKEN_SECRET env var to a long random string for production
+_TOKEN_SECRET = os.environ.get('TOKEN_SECRET', 'ts-local-dev-secret-change-in-prod-9mVk')
+
+def mk_token(uid, role, email):
+    """Create a signed token: base64(uid:role:email) + HMAC signature"""
+    import hmac
+    payload = f"{uid}:{role}:{email}"
+    sig = hmac.new(_TOKEN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+    return base64.b64encode(f"{payload}:{sig}".encode()).decode()
+
+def verify_token_sig(uid, role, email, sig):
+    """Verify the HMAC signature on a token"""
+    import hmac as _hmac
+    payload = f"{uid}:{role}:{email}"
+    expected = _hmac.new(_TOKEN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+    return _hmac.compare_digest(expected, sig)
 def get_token_user(handler):
+    """Decode token, verify HMAC signature, AND verify against DB."""
     auth = handler.headers.get('Authorization','')
     if not auth.startswith('Bearer '): return None
     try:
-        p = base64.b64decode(auth[7:]).decode().split(':',2)
-        return {'id':p[0],'role':p[1],'email':p[2]}
+        decoded = base64.b64decode(auth[7:]).decode()
+        parts = decoded.split(':',3)
+        if len(parts) != 4: return None
+        uid, role, email, sig = parts
     except: return None
+    # Verify HMAC signature first (fast, no DB hit)
+    if not verify_token_sig(uid, role, email, sig): return None
+    # Then verify against DB (ensures role hasn't changed, account not removed)
+    try:
+        conn = get_db()
+        row = conn.execute(sql("SELECT id, email, role FROM users WHERE id=?"), (uid,)).fetchone()
+        conn.close()
+        if not row: return None
+        r = dict(row)
+        if r['email'].lower() != email.lower(): return None
+        if r['role'] != role: return None  # role changed in DB (e.g. suspended)
+        return {'id': r['id'], 'role': r['role'], 'email': r['email']}
+    except:
+        return None
+
+def require_admin(handler):
+    """Returns user dict if caller is a verified admin, otherwise sends 403 and returns None."""
+    tu = get_token_user(handler)
+    if not tu or tu.get('role') != 'admin':
+        respond(handler, {'error': 'Forbidden — admin access required'}, 403)
+        return None
+    return tu
 
 def fix_timestamps(obj):
     """Normalize SQLite datetime strings (2026-06-23 14:30:00) to ISO 8601 (2026-06-23T14:30:00Z)"""
@@ -343,6 +385,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn.close(); respond(self, rows); return
 
         if path == '/api/admin/bookings':
+            if not require_admin(self): return
             conn = get_db()
             rows = conn.execute("""SELECT b.*, p.first_name, p.last_name FROM bookings b
                                     LEFT JOIN providers p ON p.id=b.provider_id
@@ -351,6 +394,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, [dict(r) for r in rows]); return
 
         if path == '/api/admin/bookings/pending-services':
+            if not require_admin(self): return
             conn = get_db()
             rows = conn.execute("""SELECT b.*, p.first_name, p.last_name FROM bookings b
                                     LEFT JOIN providers p ON p.id=b.provider_id
@@ -373,6 +417,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, [dict(r) for r in rows]); return
 
         if path == '/api/admin/providers':
+            if not require_admin(self): return
             conn = get_db()
             rows = [dict(r) for r in conn.execute("SELECT * FROM providers ORDER BY submitted_at DESC").fetchall()]
             for r in rows: r['services'] = json.loads(r.get('services','[]'))
@@ -503,6 +548,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == '/api/admin/approve':
+            if not require_admin(self): return
             pid = body.get('provider_id')
             conn = get_db()
             conn.execute(sql("UPDATE providers SET status='approved', approved_at=datetime('now'), trust_score=75 WHERE id=?"), (pid,))
@@ -516,6 +562,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, {'success':True}); return
 
         if path == '/api/admin/reject':
+            if not require_admin(self): return
             pid    = body.get('provider_id')
             reason = body.get('reason','Your application did not meet our requirements.')
             conn   = get_db()
@@ -531,6 +578,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         # Admin removes a provider entirely from the platform (revokes access + delists profile)
         if path == '/api/admin/remove':
+            if not require_admin(self): return
             pid    = body.get('provider_id')
             reason = body.get('reason','Your provider account has been removed from the platform by the administrator.')
             conn   = get_db()
@@ -546,6 +594,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, {'success':True}); return
 
         if path == '/api/admin/suspend':
+            if not require_admin(self): return
             pid    = body.get('provider_id')
             reason = body.get('reason','Your account has been temporarily suspended.')
             conn   = get_db()
@@ -562,6 +611,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, {'success':True}); return
 
         if path == '/api/admin/unsuspend':
+            if not require_admin(self): return
             pid  = body.get('provider_id')
             conn = get_db()
             conn.execute(sql("UPDATE providers SET status='approved' WHERE id=?"), (pid,))
@@ -590,6 +640,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, {'success':True}); return
 
         if path == '/api/admin/bookings/delete':
+            if not require_admin(self): return
             bid = body.get('booking_id')
             conn = get_db()
             conn.execute(sql("DELETE FROM bookings WHERE id=?"), (bid,))
@@ -597,6 +648,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             respond(self, {'success': True}); return
 
         if path == '/api/admin/bookings/complete':
+            if not require_admin(self): return
             bid = body.get('booking_id')
             status = body.get('status', 'completed')  # 'completed' or 'pending'
             conn = get_db()

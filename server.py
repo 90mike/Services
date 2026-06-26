@@ -77,6 +77,14 @@ PORT = int(os.environ.get('PORT', 8000))
 def init_db():
     conn = get_db()
     c = conn.cursor()
+    db_type = 'PostgreSQL (Neon)' if DATABASE_URL else f'SQLite ({DB_PATH if not DATABASE_URL else ""})'
+    print(f"\n{'='*52}")
+    print(f"  DATABASE: {db_type}")
+    if DATABASE_URL:
+        # Show partial URL for debugging (hide password)
+        safe_url = DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'connected'
+        print(f"  HOST: {safe_url[:50]}")
+    print(f"{'='*52}\n")
     if DATABASE_URL:
         # PostgreSQL uses SERIAL, TEXT, and different syntax
         statements = [
@@ -276,7 +284,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # Server time endpoint — lets browser sync countdown with server clock
         if path == '/api/time':
             import datetime
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(datetime.timezone.utc)
             respond(self, {'server_time': now.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'}); return
 
         if path in ('/', '/index.html'):
@@ -920,7 +928,7 @@ if __name__ == '__main__':
             try:
                 conn = get_db()
                 import datetime
-                cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
+                cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
                 # Find accepted bookings older than 24hrs still pending completion
                 old_ongoing = conn.execute(
                     "SELECT b.id, b.client_name, b.service, b.created_at, p.first_name, p.last_name "

@@ -15,32 +15,80 @@ DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 if DATABASE_URL:
     import psycopg2, psycopg2.extras
-    # Render gives postgres:// but psycopg2 needs postgresql://
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-    def get_db():
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False
-        return conn
-
-    def fetchall(cursor): return [dict(row) for row in cursor.fetchall()]
-    def fetchone(cursor):
-        row = cursor.fetchone()
-        return dict(row) if row else None
-
-    PH = '%s'   # PostgreSQL placeholder
+    PH = '%s'
     RETURNING = 'RETURNING id'
 
-    class RowDict(dict):
-        """Makes psycopg2 rows subscriptable like SQLite rows"""
+    class _RowProxy(dict):
+        """Dict that also supports integer indexing (like SQLite Row)."""
         def __getitem__(self, key):
             if isinstance(key, int):
                 return list(self.values())[key]
             return super().__getitem__(key)
 
-    def dict_cursor(conn):
-        return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    class PGCursor:
+        """Wraps psycopg2 RealDictCursor to mimic SQLite cursor behaviour."""
+        def __init__(self, raw_conn):
+            self._conn = raw_conn
+            self._cur = raw_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        def execute(self, q, args=()):
+            pg_q = q.replace('?', '%s')
+            self._cur.execute(pg_q, args if args else ())
+            return self
+
+        def executescript(self, script):
+            for stmt in script.split(';'):
+                s = stmt.strip()
+                if s:
+                    self._cur.execute(s)
+            return self
+
+        def fetchall(self):
+            try:
+                return [_RowProxy(dict(r)) for r in self._cur.fetchall()]
+            except Exception:
+                return []
+
+        def fetchone(self):
+            try:
+                row = self._cur.fetchone()
+                return _RowProxy(dict(row)) if row else None
+            except Exception:
+                return None
+
+    class PGConn:
+        """Wraps psycopg2 connection so conn.execute() works like SQLite."""
+        def __init__(self, raw):
+            self._raw = raw
+
+        def execute(self, q, args=()):
+            cur = PGCursor(self._raw)
+            return cur.execute(q, args)
+
+        def executescript(self, script):
+            cur = PGCursor(self._raw)
+            return cur.executescript(script)
+
+        def cursor(self):
+            return PGCursor(self._raw)
+
+        def commit(self):
+            self._raw.commit()
+
+        def close(self):
+            self._raw.close()
+
+    def get_db():
+        raw = psycopg2.connect(DATABASE_URL)
+        raw.autocommit = False
+        return PGConn(raw)
+
+    def fetchall(cursor): return cursor.fetchall()
+    def fetchone(cursor): return cursor.fetchone()
+    def dict_cursor(conn): return conn.cursor()
 
 else:
     import sqlite3
@@ -64,9 +112,22 @@ else:
 
 
 def sql(q):
-    """Replace ? with %s for PostgreSQL, keep ? for SQLite"""
-    if DATABASE_URL:
-        return q.replace('?', '%s')
+    """Translate SQLite query to PostgreSQL when DATABASE_URL is set."""
+    if not DATABASE_URL:
+        return q
+    # Placeholder swap
+    q = q.replace('?', '%s')
+    # SQLite date functions → PostgreSQL equivalents
+    q = q.replace("datetime('now')", 'NOW()')
+    q = q.replace("datetime('now','-1 day')", "NOW() - INTERVAL '1 day'")
+    q = q.replace("(strftime('%s','now') - strftime('%s', b.created_at)) > 86400",
+                  "EXTRACT(EPOCH FROM (NOW() - b.created_at)) > 86400")
+    # strftime seconds diff used in review timing check
+    import re
+    q = re.sub(
+        r"SELECT \(strftime\('%s','now'\) - strftime\('%s',(%s|\?)\)\) as secs",
+        r"SELECT EXTRACT(EPOCH FROM (NOW() - \1))::int as secs",
+        q)
     return q
 
 
@@ -559,7 +620,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not require_admin(self): return
             pid = body.get('provider_id')
             conn = get_db()
-            conn.execute(sql("UPDATE providers SET status='approved', approved_at=datetime('now'), trust_score=75 WHERE id=?"), (pid,))
+            conn.execute(sql("UPDATE providers SET status='approved', approved_at=NOW(), trust_score=75 WHERE id=?"), (pid,))
             prow = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
             if prow:
                 p = dict(prow)
@@ -776,8 +837,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
                 (pid, phone)).fetchone()
             if booking_row:
-                created = conn.execute(sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row[0],)).fetchone()[0]
-                if created is not None and created < 600:
+                if DATABASE_URL:
+                    timing_row = conn.execute("SELECT EXTRACT(EPOCH FROM (NOW() - %s::timestamp))::int as secs", (booking_row[0],)).fetchone()
+                else:
+                    timing_row = conn.execute(sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row[0],)).fetchone()
+                created = timing_row[0] if timing_row else None
+                if created is not None and int(created) < 600:
                     flags.append("Review submitted within 10 minutes of booking being marked completed")
             same_phone_count = conn.execute(
                 "SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')",
@@ -893,13 +958,19 @@ if __name__ == '__main__':
         while True:
             try:
                 conn = get_db()
-                stale = conn.execute(
-                    "SELECT b.id, b.provider_id, b.client_name, b.service, b.client_phone, b.created_at,"
-                    " p.first_name, p.last_name"
-                    " FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id"
-                    " WHERE b.accepted=1 AND b.status='pending'"
-                    " AND (strftime('%s','now') - strftime('%s', b.created_at)) > 86400"
-                ).fetchall()
+                if DATABASE_URL:
+                    stale_q = ("SELECT b.id, b.provider_id, b.client_name, b.service, b.client_phone, b.created_at,"
+                               " p.first_name, p.last_name"
+                               " FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id"
+                               " WHERE b.accepted=1 AND b.status='pending'"
+                               " AND EXTRACT(EPOCH FROM (NOW() - b.created_at)) > 86400")
+                else:
+                    stale_q = ("SELECT b.id, b.provider_id, b.client_name, b.service, b.client_phone, b.created_at,"
+                               " p.first_name, p.last_name"
+                               " FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id"
+                               " WHERE b.accepted=1 AND b.status='pending'"
+                               " AND (strftime('%s','now') - strftime('%s', b.created_at)) > 86400")
+                stale = conn.execute(stale_q).fetchall()
                 for row in stale:
                     r = dict(row)
                     # Only alert once — check if already alerted

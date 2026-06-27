@@ -64,9 +64,18 @@ if DATABASE_URL:
         def close(self): self._raw.close()
 
     def get_db():
-        raw = psycopg2.connect(DATABASE_URL)
-        raw.autocommit = False
-        return PGConn(raw)
+        # Neon free tier sleeps after inactivity — retry up to 3 times with timeout
+        last_err = None
+        for attempt in range(3):
+            try:
+                raw = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+                raw.autocommit = False
+                return PGConn(raw)
+            except Exception as e:
+                last_err = e
+                if attempt < 2:
+                    time.sleep(2)
+        raise last_err
 
     def fetchall(cursor): return cursor.fetchall()
     def fetchone(cursor): return cursor.fetchone()
@@ -1075,7 +1084,21 @@ if __name__ == '__main__':
 
     threading.Thread(target=check_ongoing_services, daemon=True).start()
 
-    # ThreadingHTTPServer handles multiple requests concurrently —
+    # Keep Neon DB alive — free tier sleeps after 5min inactivity
+    # This ping runs every 4 minutes to prevent that
+    def neon_keepalive():
+        time.sleep(30)  # wait for server to fully start first
+        while True:
+            try:
+                conn = get_db()
+                conn.execute("SELECT 1")
+                conn.close()
+            except Exception as e:
+                print(f"[neon-ping] Warning: {e}", flush=True)
+            time.sleep(240)  # every 4 minutes
+    threading.Thread(target=neon_keepalive, daemon=True).start()
+
+
     # essential once more than one person uses the site at the same time
     server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     server.daemon_threads = True

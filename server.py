@@ -128,6 +128,7 @@ def init_db():
             """CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL, role TEXT DEFAULT 'provider',
+                name TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT NOW()
             )""",
             """CREATE TABLE IF NOT EXISTS providers (
@@ -168,6 +169,18 @@ def init_db():
         ]
         for s in statements:
             c.execute(s)
+        # ── Migrations: add columns that may be missing from tables created before these were added ──
+        migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''",
+            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''",
+            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS id_number TEXT DEFAULT ''",
+            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS ref_code TEXT DEFAULT ''",
+            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name TEXT DEFAULT ''",
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''",
+        ]
+        for m in migrations:
+            try: c.execute(m)
+            except: pass
     else:
         c.executescript("""
     CREATE TABLE IF NOT EXISTS users (

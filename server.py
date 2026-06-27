@@ -785,7 +785,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # more than 3 times within 24 hours — prevents fake-booking spam
             if phone:
                 recent = conn.execute(
-                    "SELECT COUNT(*) FROM bookings WHERE provider_id=? AND client_phone=? AND created_at > datetime('now','-1 day')",
+                    sql("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND client_phone=? AND created_at > datetime('now','-1 day')"),
                     (pid, phone)).fetchone()[0]
                 if recent >= 3:
                     conn.close()
@@ -873,12 +873,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if created is not None and int(created) < 600:
                     flags.append("Review submitted within 10 minutes of booking being marked completed")
             same_phone_count = conn.execute(
-                "SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')",
+                sql("SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')"),
                 (phone,)).fetchone()[0]
             if same_phone_count and same_phone_count >= 3:
                 flags.append(f"Phone booked {same_phone_count} different providers in last 24h")
             recent_5star = conn.execute(
-                "SELECT COUNT(*) FROM reviews WHERE provider_id=? AND stars=5 AND created_at > datetime('now','-1 day')",
+                sql("SELECT COUNT(*) FROM reviews WHERE provider_id=? AND stars=5 AND created_at > datetime('now','-1 day')"),
                 (pid,)).fetchone()[0]
             if recent_5star and recent_5star >= 5:
                 flags.append(f"Provider received {recent_5star+1} five-star reviews in last 24h")

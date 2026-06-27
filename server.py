@@ -1003,6 +1003,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn.commit(); conn.close()
             respond(self, {'success':True}); return
 
+        if path == '/api/admin/contact-viewed':
+            pid   = body.get('provider_id','')
+            pname = body.get('provider_name','A provider')
+            conn  = get_db()
+            admin = conn.execute(sql("SELECT id FROM users WHERE role='admin' LIMIT 1")).fetchone()
+            if admin:
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"),
+                             (str(uuid.uuid4()), admin['id'], pid, 'info',
+                              f"👁️ Contact unlocked: {pname}'s phone number was viewed by a client."))
+                conn.commit()
+            conn.close()
+            respond(self, {'success': True}); return
+
         if path == '/api/admin/migrate-photos':
             if not require_admin(self): return
             conn = get_db()
@@ -1054,21 +1067,52 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if len(parts)==3 and parts[0]=='api' and parts[1]=='providers':
             pid = parts[2]
 
-            # ── Upload any base64 photos to Cloudinary ──
-            profile_photo = maybe_upload(body.get('profile_photo',''), folder='trusty-ka/profiles')
-            work_photos   = [maybe_upload(p, folder='trusty-ka/work') for p in (body.get('work_photos') or []) if p]
+            profile_photo = body.get('profile_photo','')
+            work_photos   = [p for p in (body.get('work_photos') or []) if p]
 
-            conn = get_db()
-            conn.execute(sql("""UPDATE providers SET
-                first_name=?,last_name=?,phone=?,location=?,bio=?,
-                services=?,profile_photo=?,work_photos=? WHERE id=?"""),
-                (body.get('first_name'), body.get('last_name'),
-                 body.get('phone'), body.get('location'), body.get('bio'),
-                 json.dumps(body.get('services',[])),
-                 profile_photo,
-                 json.dumps(work_photos), pid))
-            conn.commit(); conn.close()
-            respond(self, {'success': True, 'profile_photo': profile_photo, 'work_photos': work_photos}); return
+            # If any base64 images → upload to Cloudinary in a background thread
+            # so we don't block the HTTP response (Cloudinary can take 5-15s)
+            has_base64 = (profile_photo.startswith('data:image') if profile_photo else False) or \
+                         any(p.startswith('data:image') for p in work_photos if p)
+
+            if has_base64 and CLOUDINARY_CLOUD:
+                def do_upload():
+                    nonlocal profile_photo, work_photos
+                    pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')
+                    wps = [maybe_upload(p, 'trusty-ka/work') for p in work_photos]
+                    try:
+                        conn2 = get_db()
+                        conn2.execute(sql("UPDATE providers SET profile_photo=?,work_photos=? WHERE id=?"),
+                                      (pp, json.dumps(wps), pid))
+                        conn2.commit(); conn2.close()
+                        print(f"[cloudinary] Photos uploaded for provider {pid}", flush=True)
+                    except Exception as e:
+                        print(f"[cloudinary] DB update failed: {e}", flush=True)
+                threading.Thread(target=do_upload, daemon=True).start()
+                # Save text fields immediately, photos will update shortly after
+                conn = get_db()
+                conn.execute(sql("""UPDATE providers SET
+                    first_name=?,last_name=?,phone=?,location=?,bio=?,services=? WHERE id=?"""),
+                    (body.get('first_name'), body.get('last_name'),
+                     body.get('phone'), body.get('location'), body.get('bio'),
+                     json.dumps(body.get('services',[])), pid))
+                conn.commit(); conn.close()
+                respond(self, {'success': True, 'uploading': True,
+                               'message': 'Photos uploading to cloud in background'}); return
+            else:
+                # No base64 — save everything directly (already Cloudinary URLs or empty)
+                pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')
+                wps = [maybe_upload(p, 'trusty-ka/work') for p in work_photos]
+                conn = get_db()
+                conn.execute(sql("""UPDATE providers SET
+                    first_name=?,last_name=?,phone=?,location=?,bio=?,
+                    services=?,profile_photo=?,work_photos=? WHERE id=?"""),
+                    (body.get('first_name'), body.get('last_name'),
+                     body.get('phone'), body.get('location'), body.get('bio'),
+                     json.dumps(body.get('services',[])),
+                     pp, json.dumps(wps), pid))
+                conn.commit(); conn.close()
+                respond(self, {'success': True, 'profile_photo': pp, 'work_photos': wps}); return
         respond(self, {'error':'not found'}, 404)
 
 if __name__ == '__main__':

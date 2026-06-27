@@ -492,6 +492,27 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <button class="cat" onclick="filterCat(this,'Tailoring')">🧵 Tailoring</button>
     <button class="cat" onclick="filterCat(this,'Plumbing')">🔧 Plumbing</button>
     <button class="cat" onclick="filterCat(this,'Electrical')">⚡ Electrical</button>
+    <button class="cat" onclick="filterCat(this,'Hot Shower Repair')">🚿 Shower Repair</button>
+    <button class="cat" onclick="filterCat(this,'Appliance Repair')">🔌 Appliance Repair</button>
+    <button class="cat" onclick="filterCat(this,'Locksmith')">🔑 Locksmith</button>
+    <button class="cat" onclick="filterCat(this,'CCTV & Smart Home')">📷 CCTV & Smart Home</button>
+    <button class="cat" onclick="filterCat(this,'Deep Cleaning')">🫧 Deep Cleaning</button>
+    <button class="cat" onclick="filterCat(this,'Carpet & Sofa Cleaning')">🛋️ Carpet & Sofa</button>
+    <button class="cat" onclick="filterCat(this,'Pest Control')">🪲 Pest Control</button>
+    <button class="cat" onclick="filterCat(this,'House Moving')">📦 House Moving</button>
+    <button class="cat" onclick="filterCat(this,'Handyman')">🪛 Handyman</button>
+    <button class="cat" onclick="filterCat(this,'Gas Cylinder Setup')">🔥 Gas Setup</button>
+    <button class="cat" onclick="filterCat(this,'Water Tank Cleaning')">🫙 Tank Cleaning</button>
+    <button class="cat" onclick="filterCat(this,'Massage')">💆 Massage</button>
+    <button class="cat" onclick="filterCat(this,'Hair Braiding & Locs')">💇 Braiding & Locs</button>
+    <button class="cat" onclick="filterCat(this,'Nail & Pedicure')">💅 Nails & Pedicure</button>
+    <button class="cat" onclick="filterCat(this,'Beauty')">✨ Beauty</button>
+    <button class="cat" onclick="filterCat(this,'Barber')">💈 Barber</button>
+    <button class="cat" onclick="filterCat(this,'Childcare')">🧸 Childcare</button>
+    <button class="cat" onclick="filterCat(this,'Cooking')">🍳 Cooking</button>
+    <button class="cat" onclick="filterCat(this,'Gardening')">🌿 Gardening</button>
+    <button class="cat" onclick="filterCat(this,'Other')">➕ Other</button>
+    <button class="cat" onclick="filterCat(this,'Electrical')">⚡ Electrical</button>
     <button class="cat" onclick="filterCat(this,'Childcare')">👶 Childcare</button>
     <button class="cat" onclick="filterCat(this,'Beauty')">💇 Beauty</button>
     <button class="cat" onclick="filterCat(this,'Barber')">✂️ Barber</button>
@@ -636,7 +657,43 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
           <div class="fl"><label>Phone <span class="req">*</span></label><input class="fi" id="r-ph" type="tel" placeholder="07XX XXX XXX"/></div>
           <div class="fl"><label>Location <span class="req">*</span></label><input class="fi" id="r-loc" type="text" placeholder="e.g. Westlands, Nairobi"/></div>
           <div class="fl"><label>Category <span class="req">*</span></label>
-            <select class="fi" id="r-cat"><option value="">Select…</option><option>Laundry</option><option>Cleaning</option><option>Tailoring</option><option>Plumbing</option><option>Electrical</option><option>Childcare</option><option>Beauty</option><option>Barber</option><option>Massage</option><option>Tattoo</option><option>Cooking</option><option>Gardening</option><option>Key Cutting</option><option>Moving</option><option>Househelp</option><option>Personal Services</option><option>Other</option></select>
+            <select class="fi" id="r-cat"><option value="">Select category…</option>
+              <optgroup label="Technical &amp; Repair">
+                <option>Plumbing</option>
+                <option>Electrical</option>
+                <option>Hot Shower Repair</option>
+                <option>Appliance Repair</option>
+                <option>Locksmith</option>
+                <option>CCTV &amp; Smart Home</option>
+              </optgroup>
+              <optgroup label="Cleaning &amp; Domestic">
+                <option>Laundry</option>
+                <option>Cleaning</option>
+                <option>Deep Cleaning</option>
+                <option>Carpet &amp; Sofa Cleaning</option>
+                <option>Pest Control</option>
+              </optgroup>
+              <optgroup label="Logistics &amp; Maintenance">
+                <option>House Moving</option>
+                <option>Handyman</option>
+                <option>Gas Cylinder Setup</option>
+                <option>Water Tank Cleaning</option>
+              </optgroup>
+              <optgroup label="Wellness &amp; Beauty">
+                <option>Massage</option>
+                <option>Hair Braiding &amp; Locs</option>
+                <option>Nail &amp; Pedicure</option>
+                <option>Beauty</option>
+                <option>Barber</option>
+              </optgroup>
+              <optgroup label="Other Services">
+                <option>Tailoring</option>
+                <option>Childcare</option>
+                <option>Cooking</option>
+                <option>Gardening</option>
+                <option>Other</option>
+              </optgroup>
+            </select>
           </div>
           <div class="fl rg-full"><label>Bio <span class="req">*</span></label><textarea class="fi" id="r-bio" placeholder="Tell clients about your experience and specialties…"></textarea><div class="fi-hint">Be specific — it builds trust.</div></div>
         </div>
@@ -991,8 +1048,22 @@ async function api(path,method='GET',body=null){
   const tok=localStorage.getItem('ts_token');
   if(tok) opts.headers['Authorization']='Bearer '+tok;
   if(body) opts.body=JSON.stringify(body);
-  try{ const r=await fetch(API+path,opts); return await r.json(); }
-  catch(e){ return{error:'Cannot reach server. Please refresh and try again.'}; }
+  try{
+    const r=await fetch(API+path,opts);
+    if(!r.ok && r.status !== 200){
+      const text=await r.text();
+      try{ return JSON.parse(text); }
+      catch{ return{error:`Server error ${r.status}: ${text.slice(0,120)}`}; }
+    }
+    return await r.json();
+  }
+  catch(e){
+    // e.message tells us if it's a network error, CORS, JSON parse failure etc.
+    const msg = e instanceof SyntaxError
+      ? 'Server returned invalid response — check Render logs'
+      : (navigator.onLine===false ? 'You appear to be offline' : `Cannot reach server (${e.message})`);
+    return{error: msg};
+  }
 }
 function star(n){'★'.repeat(n)+'☆'.repeat(5-n); return '★'.repeat(n)+'☆'.repeat(5-n);}
 
@@ -1060,7 +1131,7 @@ async function loadProviders(cat='',q='',loc=''){
   if(q) url+='q='+encodeURIComponent(q)+'&';
   if(loc) url+='loc='+encodeURIComponent(loc);
   const data=await api(url);
-  if(data.error||!Array.isArray(data)){grid.innerHTML='<div class="loading" style="color:var(--red)">'+((data&&data.error)||'Failed to load')+'<br><small>Make sure server.py is running on port 8000</small></div>';document.getElementById('result-sub').textContent='0 providers';return;}
+  if(data.error||!Array.isArray(data)){grid.innerHTML='<div class="loading" style="color:var(--red)">'+((data&&data.error)||'Failed to load providers')+'<br><small style="opacity:.7">Pull down to refresh</small></div>';document.getElementById('result-sub').textContent='0 providers';return;}
   document.getElementById('result-sub').textContent=data.length+' providers'+(loc?' · 📍 '+loc:' · Nairobi');
   if(!data.length){grid.innerHTML='<div class="loading">No verified providers'+(cat&&cat!=='All'?' in '+cat:'')+(loc?' in '+loc:'')+' yet. Be the first to register!</div>';return;}
 
@@ -1688,6 +1759,8 @@ function confirmShowContact(){
      <a href="https://wa.me/254${p.phone.replace(/^0/,'')}" target="_blank" style="color:var(--green);text-decoration:none">WhatsApp</a>`;
   document.getElementById('contact-reveal').style.display = 'block';
   document.getElementById('view-contact-btn').textContent = '🔒 Hide Contact';
+  // Notify admin that this provider's contact was viewed
+  api('/admin/contact-viewed','POST',{provider_id: p.id, provider_name: `${p.first_name} ${p.last_name}`});
   // Auto-lock after 5 minutes
   if(S.contactLockTimer) clearTimeout(S.contactLockTimer);
   S.contactLockTimer = setTimeout(()=>{

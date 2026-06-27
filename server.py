@@ -18,58 +18,43 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-    PH = '%s'
-    RETURNING = 'RETURNING id'
-
-    class _RowProxy(dict):
-        """Dict that also supports integer indexing like SQLite Row."""
-        def __getitem__(self, key):
-            if isinstance(key, int):
-                return list(self.values())[key]
-            return super().__getitem__(key)
-
-    class PGCursor:
-        """Wraps psycopg2 cursor to mimic SQLite cursor behaviour."""
-        def __init__(self, raw_conn):
-            self._cur = raw_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        def execute(self, q, args=()):
-            self._cur.execute(q.replace('?', '%s'), args if args else ())
-            return self
-        def executescript(self, script):
-            for s in script.split(';'):
-                s = s.strip()
-                if s: self._cur.execute(s)
-            return self
-        def fetchall(self):
-            try: return [_RowProxy(dict(r)) for r in self._cur.fetchall()]
-            except: return []
-        def fetchone(self):
-            try:
-                row = self._cur.fetchone()
-                return _RowProxy(dict(row)) if row else None
-            except: return None
-        def __getitem__(self, key): return self._cur.__getitem__(key)
-
     class PGConn:
-        """Wraps psycopg2 connection so conn.execute() works just like SQLite."""
-        def __init__(self, raw):
-            self._raw = raw
-        def execute(self, q, args=()):
-            return PGCursor(self._raw).execute(q, args)
+        """Wraps psycopg2 connection to behave like SQLite — supports conn.execute() directly."""
+        def __init__(self, conn):
+            self._conn = conn
+            self._cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        def execute(self, sql, params=None):
+            self._cur.execute(sql, params or [])
+            return self._cur
+
         def executescript(self, script):
-            return PGCursor(self._raw).executescript(script)
-        def cursor(self): return PGCursor(self._raw)
-        def commit(self): self._raw.commit()
-        def close(self): self._raw.close()
+            for stmt in script.split(';'):
+                stmt = stmt.strip()
+                if stmt:
+                    try: self._cur.execute(stmt)
+                    except: pass
+
+        def commit(self): self._conn.commit()
+        def close(self): self._conn.close()
+
+        def __getattr__(self, name):
+            return getattr(self._conn, name)
 
     def get_db():
-        raw = psycopg2.connect(DATABASE_URL)
-        raw.autocommit = False
-        return PGConn(raw)
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return PGConn(conn)
 
-    def fetchall(cursor): return cursor.fetchall()
-    def fetchone(cursor): return cursor.fetchone()
-    def dict_cursor(conn): return conn.cursor()
+    def fetchall(cursor): return [dict(row) for row in cursor.fetchall()]
+    def fetchone(cursor):
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def dict_cursor(conn): return conn._cur
+
+    PH = '%s'
+    RETURNING = 'RETURNING id'
 
 else:
     import sqlite3
@@ -93,15 +78,9 @@ else:
 
 
 def sql(q):
-    """Translate SQLite query syntax to PostgreSQL when DATABASE_URL is set."""
-    if not DATABASE_URL:
-        return q
-    q = q.replace('?', '%s')
-    q = q.replace("datetime('now')", 'NOW()')
-    q = q.replace("datetime('now','-1 day')", "NOW() - INTERVAL '1 day'")
-    q = q.replace(
-        "(strftime('%s','now') - strftime('%s', b.created_at)) > 86400",
-        "EXTRACT(EPOCH FROM (NOW() - b.created_at)) > 86400")
+    """Replace ? with %s for PostgreSQL, keep ? for SQLite"""
+    if DATABASE_URL:
+        return q.replace('?', '%s')
     return q
 
 
@@ -128,7 +107,6 @@ def init_db():
             """CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL, role TEXT DEFAULT 'provider',
-                name TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT NOW()
             )""",
             """CREATE TABLE IF NOT EXISTS providers (
@@ -169,18 +147,6 @@ def init_db():
         ]
         for s in statements:
             c.execute(s)
-        # ── Migrations: add columns that may be missing from tables created before these were added ──
-        migrations = [
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''",
-            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''",
-            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS id_number TEXT DEFAULT ''",
-            "ALTER TABLE providers ADD COLUMN IF NOT EXISTS ref_code TEXT DEFAULT ''",
-            "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name TEXT DEFAULT ''",
-            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS provider_id TEXT DEFAULT ''",
-        ]
-        for m in migrations:
-            try: c.execute(m)
-            except: pass
     else:
         c.executescript("""
     CREATE TABLE IF NOT EXISTS users (
@@ -285,66 +251,44 @@ def require_admin(handler):
         return None
     return tu
 
-def _pg_serialize(obj):
-    """JSON serializer that handles PostgreSQL-returned Python objects."""
-    import datetime, decimal
-    if isinstance(obj, (datetime.datetime, datetime.date)):
-        return obj.strftime('%Y-%m-%dT%H:%M:%SZ') if isinstance(obj, datetime.datetime) else obj.isoformat()
-    if isinstance(obj, decimal.Decimal):
-        return float(obj)
-    if isinstance(obj, (bytes, bytearray)):
-        return obj.decode('utf-8', errors='replace')
-    return str(obj)
+def safe_json(val, default=None):
+    """Safely parse JSON - works when val is already a list/dict (PostgreSQL) or string (SQLite)"""
+    if default is None: default = []
+    if val is None: return default
+    if isinstance(val, (list, dict)): return val
+    try: return json.loads(val)
+    except: return default
+
+def scalar(cursor):
+    """Get single scalar value from a COUNT/SUM query - works for both SQLite and PostgreSQL RealDictRow"""
+    row = cursor.fetchone()
+    if row is None: return 0
+    if isinstance(row, dict): return list(row.values())[0]
+    return row[0]
 
 def fix_timestamps(obj):
-    """Normalize all date/datetime values to ISO 8601 strings, handling both SQLite strings and PostgreSQL datetime objects."""
-    import datetime, decimal
+    """Normalize SQLite datetime strings (2026-06-23 14:30:00) to ISO 8601 (2026-06-23T14:30:00Z)"""
     if isinstance(obj, dict):
-        out = {}
-        for k, v in obj.items():
-            if isinstance(v, datetime.datetime):
-                out[k] = v.strftime('%Y-%m-%dT%H:%M:%SZ')
-            elif isinstance(v, datetime.date):
-                out[k] = v.isoformat()
-            elif isinstance(v, decimal.Decimal):
-                out[k] = float(v)
-            elif isinstance(v, str) and len(v) == 19 and v[10] == ' ':
-                out[k] = v.replace(' ', 'T') + 'Z'
-            elif isinstance(v, (dict, list)):
-                out[k] = fix_timestamps(v)
-            else:
-                out[k] = v
-        return out
+        return {k: fix_timestamps(v) if isinstance(v, str) and len(v)==19 and ' ' in v and v[10]==' '
+                else fix_timestamps(v) if isinstance(v, (dict, list)) else v
+                for k, v in obj.items()}
     if isinstance(obj, list):
         return [fix_timestamps(i) for i in obj]
-    if isinstance(obj, datetime.datetime):
-        return obj.strftime('%Y-%m-%dT%H:%M:%SZ')
-    if isinstance(obj, datetime.date):
-        return obj.isoformat()
-    if isinstance(obj, decimal.Decimal):
-        return float(obj)
-    if isinstance(obj, str) and len(obj) == 19 and obj[10] == ' ':
+    if isinstance(obj, str) and len(obj)==19 and obj[10]==' ':
         return obj.replace(' ', 'T') + 'Z'
     return obj
 
 def respond(handler, data, status=200):
-    try:
-        data = fix_timestamps(data)
-        body = json.dumps(data, default=_pg_serialize).encode()
-    except Exception as e:
-        body = json.dumps({'error': f'Serialization error: {e}'}).encode()
-        status = 500
-    try:
-        handler.send_response(status)
-        for k,v in [('Content-Type','application/json'),('Content-Length',len(body)),
-                    ('Access-Control-Allow-Origin','*'),
-                    ('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS'),
-                    ('Access-Control-Allow-Headers','Content-Type,Authorization')]:
-            handler.send_header(k,v)
-        handler.end_headers()
-        handler.wfile.write(body)
-    except BrokenPipeError:
-        pass  # Client disconnected — not a real error
+    data = fix_timestamps(data)
+    body = json.dumps(data, default=str).encode()
+    handler.send_response(status)
+    for k,v in [('Content-Type','application/json'),('Content-Length',len(body)),
+                ('Access-Control-Allow-Origin','*'),
+                ('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS'),
+                ('Access-Control-Allow-Headers','Content-Type,Authorization')]:
+        handler.send_header(k,v)
+    handler.end_headers()
+    handler.wfile.write(body)
 
 def read_body(handler):
     n = int(handler.headers.get('Content-Length',0))
@@ -440,7 +384,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if q:
                 rows = [r for r in rows if q in (r.get('first_name','')+' '+r.get('last_name','')+' '+r.get('category','')+' '+r.get('bio','')).lower()]
             for r in rows:
-                r['services'] = json.loads(r.get('services','[]'))
+                r['services'] = safe_json(r.get('services'))
             conn.close()
             respond(self, rows); return
 
@@ -458,27 +402,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 prow = conn.execute(sql("SELECT * FROM providers WHERE user_id=?"), (u['id'],)).fetchone()
                 if prow:
                     provider = dict(prow)
-                    provider['services'] = json.loads(provider.get('services','[]'))
-                    provider['work_photos'] = json.loads(provider.get('work_photos','[]'))
+                    provider['services'] = safe_json(provider.get('services'))
+                    provider['work_photos'] = safe_json(provider.get('work_photos'))
             conn.close()
             respond(self, {'user':u,'provider':provider}); return
 
         if path == '/api/admin/stats':
-            if not require_admin(self): return
             conn = get_db()
             respond(self, {
-                'total':    conn.execute("SELECT COUNT(*) FROM providers").fetchone()[0],
-                'verified': conn.execute("SELECT COUNT(*) FROM providers WHERE status='approved'").fetchone()[0],
-                'pending':  conn.execute("SELECT COUNT(*) FROM providers WHERE status='pending'").fetchone()[0],
-                'bookings': conn.execute("SELECT COUNT(*) FROM bookings").fetchone()[0],
+                'total':    scalar(conn.execute("SELECT COUNT(*) FROM providers")),
+                'verified': scalar(conn.execute("SELECT COUNT(*) FROM providers WHERE status='approved'")),
+                'pending':  scalar(conn.execute("SELECT COUNT(*) FROM providers WHERE status='pending'")),
+                'bookings': scalar(conn.execute("SELECT COUNT(*) FROM bookings")),
             })
             conn.close(); return
 
         if path == '/api/admin/pending':
-            if not require_admin(self): return
             conn = get_db()
             rows = [dict(r) for r in conn.execute("SELECT * FROM providers WHERE status='pending' ORDER BY submitted_at DESC").fetchall()]
-            for r in rows: r['services'] = json.loads(r.get('services','[]'))
+            for r in rows: r['services'] = safe_json(r.get('services'))
             conn.close(); respond(self, rows); return
 
         if path == '/api/admin/bookings':
@@ -517,7 +459,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not require_admin(self): return
             conn = get_db()
             rows = [dict(r) for r in conn.execute("SELECT * FROM providers ORDER BY submitted_at DESC").fetchall()]
-            for r in rows: r['services'] = json.loads(r.get('services','[]'))
+            for r in rows: r['services'] = safe_json(r.get('services'))
             conn.close(); respond(self, rows); return
 
         # /api/providers/by-user/{user_id} — fetch provider by user account (for login refresh)
@@ -527,8 +469,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             row = conn.execute(sql("SELECT * FROM providers WHERE user_id=?"), (uid,)).fetchone()
             if not row: respond(self,{'error':'not found'},404); conn.close(); return
             p = dict(row)
-            p['services'] = json.loads(p.get('services','[]'))
-            p['work_photos'] = json.loads(p.get('work_photos','[]'))
+            p['services'] = safe_json(p.get('services'))
+            p['work_photos'] = safe_json(p.get('work_photos'))
             conn.close(); respond(self, p); return
 
         if len(parts)==3 and parts[0]=='api' and parts[1]=='providers':
@@ -537,8 +479,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             row = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
             if not row: respond(self,{'error':'not found'},404); conn.close(); return
             p = dict(row)
-            p['services'] = json.loads(p.get('services','[]'))
-            p['work_photos'] = json.loads(p.get('work_photos','[]'))
+            p['services'] = safe_json(p.get('services'))
+            p['work_photos'] = safe_json(p.get('work_photos'))
             p['reviews'] = [dict(r) for r in conn.execute(
                 "SELECT * FROM reviews WHERE provider_id=? ORDER BY created_at DESC LIMIT 10",(pid,)).fetchall()]
             conn.close(); respond(self, p); return
@@ -594,7 +536,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 prow = conn.execute(sql("SELECT * FROM providers WHERE user_id=?"), (u['id'],)).fetchone()
                 if prow:
                     provider = dict(prow)
-                    provider['services'] = json.loads(provider.get('services','[]'))
+                    provider['services'] = safe_json(provider.get('services'))
             conn.close()
             respond(self, {'token': mk_token(u['id'],u['role'],u['email']), 'user': u, 'provider': provider})
             return
@@ -648,7 +590,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not require_admin(self): return
             pid = body.get('provider_id')
             conn = get_db()
-            conn.execute(sql("UPDATE providers SET status='approved', approved_at=NOW(), trust_score=75 WHERE id=?"), (pid,))
+            conn.execute(sql("UPDATE providers SET status='approved', approved_at=datetime('now'), trust_score=75 WHERE id=?"), (pid,))
             prow = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
             if prow:
                 p = dict(prow)
@@ -784,9 +726,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # Rate limit: block the same phone from booking the same provider
             # more than 3 times within 24 hours — prevents fake-booking spam
             if phone:
-                recent = conn.execute(
-                    sql("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND client_phone=? AND created_at > datetime('now','-1 day')"),
-                    (pid, phone)).fetchone()[0]
+                recent = scalar(conn.execute(
+                    "SELECT COUNT(*) FROM bookings WHERE provider_id=? AND client_phone=? AND created_at > datetime('now','-1 day')",
+                    (pid, phone)))
                 if recent >= 3:
                     conn.close()
                     respond(self, {'error': 'You have already made 3 bookings with this provider in the last 24 hours. Please wait before booking again.'}, 429)
@@ -806,7 +748,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             admin = conn.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()
             if admin:
                 amsg = f"📅 New booking: {body.get('client_name','Client')} booked {body.get('service','')} with {p.get('first_name','') if prow else ''} {p.get('last_name','') if prow else ''} on {body.get('date','')}."
-                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'booking', amsg))
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'booking', amsg))
             conn.commit(); conn.close()
             respond(self, {'success':True,'booking_id':bid}); return
 
@@ -865,21 +807,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
                 (pid, phone)).fetchone()
             if booking_row:
-                if DATABASE_URL:
-                    _tr = conn.execute("SELECT EXTRACT(EPOCH FROM (NOW() - %s::timestamp))::int as secs", (booking_row.get('created_at') if hasattr(booking_row,'get') else booking_row[0],)).fetchone()
-                else:
-                    _tr = conn.execute(sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row[0],)).fetchone()
-                created = _tr[0] if _tr else None
-                if created is not None and int(created) < 600:
+                created = scalar(conn.execute(sql("SELECT EXTRACT(EPOCH FROM (NOW() - ?::timestamp))::int as secs") if DATABASE_URL else sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row.get('created_at','') if isinstance(booking_row,dict) else booking_row[0],)))
+                if created is not None and created < 600:
                     flags.append("Review submitted within 10 minutes of booking being marked completed")
-            same_phone_count = conn.execute(
-                sql("SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')"),
-                (phone,)).fetchone()[0]
+            same_phone_count = scalar(conn.execute(
+                "SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')",
+                (phone,)))
             if same_phone_count and same_phone_count >= 3:
                 flags.append(f"Phone booked {same_phone_count} different providers in last 24h")
-            recent_5star = conn.execute(
-                sql("SELECT COUNT(*) FROM reviews WHERE provider_id=? AND stars=5 AND created_at > datetime('now','-1 day')"),
-                (pid,)).fetchone()[0]
+            recent_5star = scalar(conn.execute(
+                "SELECT COUNT(*) FROM reviews WHERE provider_id=? AND stars=5 AND created_at > datetime('now','-1 day')",
+                (pid,)))
             if recent_5star and recent_5star >= 5:
                 flags.append(f"Provider received {recent_5star+1} five-star reviews in last 24h")
 
@@ -899,8 +837,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             new_ts = max(0, min(98, cur_ts + delta))
 
             # ── Reliability score = (accepted + completed) / total_received * 100 ──
-            total_bk = conn.execute(sql("SELECT COUNT(*) FROM bookings WHERE provider_id=?"), (pid,)).fetchone()[0]
-            accepted_bk = conn.execute(sql("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND (accepted=1 OR status='completed')"), (pid,)).fetchone()[0]
+            total_bk = scalar(conn.execute(sql("SELECT COUNT(*) FROM bookings WHERE provider_id=?"), (pid,)))
+            accepted_bk = scalar(conn.execute(sql("SELECT COUNT(*) FROM bookings WHERE provider_id=? AND (accepted=1 OR status='completed')"), (pid,)))
             reliability = round((accepted_bk / total_bk * 100), 1) if total_bk > 0 else 0
 
             conn.execute(sql("UPDATE providers SET rating=?, review_count=?, trust_score=?, reliability=?, jobs_done=jobs_done+1 WHERE id=?"), (avg, len(rows), new_ts, reliability, pid))
@@ -911,7 +849,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if admin:
                     prov = conn.execute(sql("SELECT first_name,last_name FROM providers WHERE id=?"), (pid,)).fetchone()
                     pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
-                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'flagged',
+                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'flagged',
                                   f"⭐{stars} low rating for {pname} from {name} ({phone}). Immediate review recommended."))
 
             if flags:
@@ -920,7 +858,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     prov = conn.execute(sql("SELECT first_name,last_name FROM providers WHERE id=?"), (pid,)).fetchone()
                     pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
                     fmsg = f"🚩 Suspicious review for {pname}: " + "; ".join(flags)
-                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'flagged', fmsg))
+                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'flagged', fmsg))
 
             conn.commit(); conn.close()
             respond(self, {'success':True, 'new_rating': avg, 'review_count': len(rows), 'trust_score': new_ts}); return
@@ -990,20 +928,9 @@ if __name__ == '__main__':
                     "SELECT b.id, b.provider_id, b.client_name, b.service, b.client_phone, b.created_at,"
                     " p.first_name, p.last_name"
                     " FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id"
-                    " WHERE (b.accepted=1 OR b.status='ongoing')"
-                    " AND b.status != 'completed'"
+                    " WHERE b.accepted=1 AND b.status='pending'"
+                    (" AND (EXTRACT(EPOCH FROM (NOW() - b.created_at::timestamp)) > 86400)" if DATABASE_URL else " AND (strftime('%s','now') - strftime('%s', b.created_at)) > 86400")
                 ).fetchall()
-                # Filter in Python: > 24 hours
-                import datetime as _dt
-                def _overstayed(row):
-                    try:
-                        ca = str(row.get('created_at','') or '')
-                        if not ca: return False
-                        ca = ca.replace('T',' ').replace('Z','').strip()
-                        created = _dt.datetime.fromisoformat(ca.split('.')[0])
-                        return (_dt.datetime.utcnow() - created).total_seconds() > 86400
-                    except: return False
-                stale = [r for r in stale if _overstayed(r)]
                 for row in stale:
                     r = dict(row)
                     # Only alert once — check if already alerted
@@ -1049,7 +976,7 @@ if __name__ == '__main__':
                     if not already and admin:
                         conn.execute(
                             "INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)",
-                            (str(uuid.uuid4()), admin['id'], '', 'info',
+                            (str(uuid.uuid4()), admin[0], '', 'info',
                              f'⏰ Overdue service [{r["id"][:8]}]: {r["first_name"]} {r["last_name"]} — "{r["service"]}" for {r["client_name"]} has been ongoing for over 24 hours without completion.'))
                 conn.commit()
                 conn.close()

@@ -939,34 +939,7 @@ function _show(name){
   if(name==='booking-status') setTimeout(loadClientStatus, 50);
   window.scrollTo(0,0);
 }
-/* ── Real-time SSE: instant push from server, no polling ── */
-(function startPolling(){
-  const FAST = 7000, SLOW = 20000;
-  let _timer = null;
-  async function poll(){
-    const page = S.page;
-    if(page==='booking-status'){ loadClientStatus(); return; }
-    if(page==='provider-dash'){
-      if(!S.provider) return;
-      const me=await api('/auth/me');
-      if(me&&(me.role==='suspended_provider'||me.role==='removed_provider')){
-        showToast('Your account has been suspended by the administrator.','err',6000);
-        doLogout(); return;
-      }
-      loadPdNotifs(); loadPdBookings(); return;
-    }
-    if(page==='admin'){ if(S.adminLoggedIn) loadAdminData(); return; }
-    if(page==='search'){ loadProviders(S.activeCat||'',S.activeQ||'',S.activeLoc||''); return; }
-  }
-  function schedule(){
-    clearTimeout(_timer);
-    const live=['booking-status','provider-dash','admin'];
-    _timer=setTimeout(async()=>{ await poll(); schedule(); }, live.includes(S.page)?FAST:SLOW);
-  }
-  const _orig=window.nav;
-  window.nav=function(p,push=true){ _orig(p,push); schedule(); };
-  schedule();
-})();function showToast(msg,type='info',ms=3500){
+function showToast(msg,type='info',ms=3500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
   clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',ms);
@@ -1076,7 +1049,7 @@ async function loadProviders(cat='',q='',loc=''){
     const c=COLORS[p.id.charCodeAt(0)%COLORS.length];
     const b=BANNERS[p.id.charCodeAt(0)%BANNERS.length];
     const ini=((p.first_name||'')[0]||'')+((p.last_name||'')[0]||'');
-    const avHtml=p.profile_photo?`<img src="${p.profile_photo}?t=${Math.floor(Date.now()/30000)}" alt="${ini}"/>`:`<span>${ini.toUpperCase()}</span>`;
+    const avHtml=p.profile_photo?`<img src="${p.profile_photo}" alt="${ini}"/>`:`<span>${ini.toUpperCase()}</span>`;
     // Show top-rated badge only from position 1-3, only if eligible (20+ providers), only if they have ratings
     const showRank=topRatedEligible&&p.review_count>0&&i<3;
     return`<div class="pcard" onclick="openProfile('${p.id}')">
@@ -1126,38 +1099,26 @@ function doSearch(){
 // Search on Enter is handled via onkeydown on the inputs directly
 
 /* ── Profile ── */
-let _profileReqId = 0; // increments each call — stale responses are ignored
 async function openProfile(id){
-  const reqId = ++_profileReqId;
   nav('profile');
+  // Always reset contact state when viewing a new profile
   _hideContact();
-
-  // Show a loading skeleton immediately so stale data is never visible
-  const av = document.getElementById('prof-av');
-  av.innerHTML = '<span style="opacity:.3">…</span>';
-  document.getElementById('prof-name').textContent = 'Loading…';
-  document.getElementById('prof-role').textContent = '';
-  document.getElementById('prof-bio').textContent = '';
-  document.getElementById('prof-svcs').innerHTML = '';
-  document.getElementById('prof-revs-preview').innerHTML = '';
-  document.getElementById('prof-work-photos').innerHTML = '';
-  S.curProvider = null; // clear stale provider so booking is impossible during load
-
-  const p = await api('/providers/'+id+'?t='+Date.now()); // cache-bust
-  if(reqId !== _profileReqId) return; // a newer openProfile() call won — discard this response
+  const p=await api('/providers/'+id);
   if(p.error){showToast(p.error,'err');return;}
-  S.curProvider = p;
+  S.curProvider=p;
   const c=COLORS[p.id.charCodeAt(0)%COLORS.length];
   const ini=((p.first_name||'')[0]||'')+((p.last_name||'')[0]||'');
   document.getElementById('prof-bg').style.background=BANNERS[p.id.charCodeAt(0)%BANNERS.length];
+  const av=document.getElementById('prof-av');
   if(p.profile_photo){
-    av.innerHTML=`<img src="${p.profile_photo}?t=${Date.now()}" alt="${ini}" style="width:100%;height:100%;object-fit:cover"/>
+    av.innerHTML=`<img src="${p.profile_photo}" alt="${ini}" style="width:100%;height:100%;object-fit:cover"/>
       <div style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.55);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;pointer-events:none">🔍</div>`;
     av.style.background='';
   } else {
     av.innerHTML=`<span>${ini.toUpperCase()}</span>`;
     av.style.background=`linear-gradient(135deg,${c},${COLORS[(COLORS.indexOf(c)+3)%COLORS.length]})`;
   }
+  // Profile photo click = lightbox
   av.onclick=()=>{if(p.profile_photo) openLightbox([p.profile_photo],0);};
   av.style.cursor=p.profile_photo?'pointer':'default';
 
@@ -1176,13 +1137,15 @@ async function openProfile(id){
   document.getElementById('prof-revs-preview').innerHTML=rHtml;
   document.getElementById('prof-revs-all').innerHTML=rHtml;
 
+  // Work photos grid on profile
   const photos=(p.work_photos||[]).filter(Boolean);
   const wpEl=document.getElementById('prof-work-photos');
   if(photos.length){
+    // Store photos array on the grid element for lightbox access
     wpEl.dataset.photos=JSON.stringify(photos);
     wpEl.innerHTML=photos.map((src,i)=>
       `<div onclick="openWorkPhotoLightbox(this,${i})" data-idx="${i}" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;background:var(--bg4)">
-        <img src="${src}?t=${Date.now()}" alt="Work photo ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+        <img src="${src}" alt="Work photo ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>`
     ).join('');
   } else {
@@ -1883,11 +1846,7 @@ async function markBookingDone(bid){
 }
 async function saveProfile(){
   if(!S.provider)return;
-  const photo=S.ppData||S.provider.profile_photo||'';
-  const workPhotos=S.workPhotos.filter(Boolean);
-  const totalMB=(photo.length+workPhotos.join('').length)/1024/1024;
-  if(totalMB>3.5){showToast('Photos are too large to save. Please use smaller images.','err',5000);return;}
-  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:document.getElementById('e-ph').value.trim(),location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:photo,work_photos:workPhotos};
+  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:document.getElementById('e-ph').value.trim(),location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:S.ppData||S.provider.profile_photo||'',work_photos:S.workPhotos.filter(Boolean)};
   const res=await api('/providers/'+S.provider.id,'PUT',body);
   if(res.success){
     showToast('✅ Profile updated!','ok');
@@ -1907,57 +1866,23 @@ function renderPdSvcs(){const el=document.getElementById('pd-svc-list');if(!S.pd
 function addPdSvc(){const n=document.getElementById('pd-sn').value.trim(),p=document.getElementById('pd-sp').value.trim();if(!n||!p)return;S.pdSvcs.push({n,p});renderPdSvcs();document.getElementById('pd-sn').value='';document.getElementById('pd-sp').value='';}
 async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
 function renderPhotoGrid(){document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>`<div class="photo-slot ${ph?'has-photo':''}" id="ps${i}" onclick="trigPhotoUp(${i})">${ph?`<img src="${ph}" alt="Work photo"/>`:''}<div class="photo-slot-ov">${ph?`<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos[${i}]=null;renderPhotoGrid()">🗑 Remove</button>`:''}</div>${!ph?'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>':''}</div>`).join('');}
-function compressImage(file, maxW=600, quality=0.72){
-  return new Promise(resolve=>{
-    const img=new Image(), url=URL.createObjectURL(file);
-    img.onload=()=>{
-      const scale=Math.min(1, maxW/Math.max(img.width,img.height));
-      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
-      const c=document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', quality));
-    };
-    img.src=url;
-  });
-}
-async function pickProfilePhoto(){
-  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange=async e=>{
-    const f=e.target.files[0]; if(!f) return;
-    showToast('Compressing photo…','info',2000);
-    const data=await compressImage(f, 600, 0.75);
-    S.ppData=data;
-    document.getElementById('pd-pp-img').src=data;
+function trigPhotoUp(i){const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{S.workPhotos[i]=ev.target.result;renderPhotoGrid();};r.readAsDataURL(f);};inp.click();}
+function handlePP(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    S.ppData=ev.target.result;
+    // Update the dashboard preview
+    document.getElementById('pd-pp-img').src=ev.target.result;
     document.getElementById('pd-pp-img').style.display='block';
     document.getElementById('pd-pp-init').style.display='none';
+    // Live-update in the profile page if open
     const profAv=document.getElementById('prof-av');
-    if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id)
-      profAv.innerHTML=`<img src="${data}" alt="" style="width:100%;height:100%;object-fit:cover"/>`;
+    if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id){
+      profAv.innerHTML=`<img src="${ev.target.result}" alt=""/>`;
+    }
   };
-  inp.click();
-}
-function trigPhotoUp(i){
-  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange=async e=>{
-    const f=e.target.files[0]; if(!f) return;
-    showToast('Compressing photo…','info',2000);
-    const data=await compressImage(f, 800, 0.75);
-    S.workPhotos[i]=data; renderPhotoGrid();
-  };
-  inp.click();
-}
-async function handlePP(inp){
-  const f=inp.files[0]; if(!f) return;
-  showToast('Compressing photo…','info',2000);
-  const data=await compressImage(f, 600, 0.75);
-  S.ppData=data;
-  document.getElementById('pd-pp-img').src=data;
-  document.getElementById('pd-pp-img').style.display='block';
-  document.getElementById('pd-pp-init').style.display='none';
-  const profAv=document.getElementById('prof-av');
-  if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id)
-    profAv.innerHTML=`<img src="${data}" alt="" style="width:100%;height:100%;object-fit:cover"/>`;
+  r.readAsDataURL(f);
 }
 function removePP(){S.ppData=null;document.getElementById('pd-pp-img').style.display='none';document.getElementById('pd-pp-init').style.display='block';document.getElementById('pp-upload').value='';}
 

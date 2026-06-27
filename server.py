@@ -8,7 +8,6 @@ Database: PostgreSQL on Render (via DATABASE_URL env var), SQLite locally.
 """
 import http.server, json, hashlib, uuid, os, base64, urllib.parse, time, threading
 
-
 # ── Database abstraction ──────────────────────────────────────────────────────
 # Uses PostgreSQL when DATABASE_URL is set (Render production),
 # falls back to SQLite for local development.
@@ -64,18 +63,9 @@ if DATABASE_URL:
         def close(self): self._raw.close()
 
     def get_db():
-        # Neon free tier sleeps after inactivity — retry up to 3 times with timeout
-        last_err = None
-        for attempt in range(3):
-            try:
-                raw = psycopg2.connect(DATABASE_URL, connect_timeout=10)
-                raw.autocommit = False
-                return PGConn(raw)
-            except Exception as e:
-                last_err = e
-                if attempt < 2:
-                    time.sleep(2)
-        raise last_err
+        raw = psycopg2.connect(DATABASE_URL)
+        raw.autocommit = False
+        return PGConn(raw)
 
     def fetchall(cursor): return cursor.fetchall()
     def fetchone(cursor): return cursor.fetchone()
@@ -357,10 +347,8 @@ def respond(handler, data, status=200):
         pass  # Client disconnected — not a real error
 
 def read_body(handler):
-    n = int(handler.headers.get('Content-Length', 0))
+    n = int(handler.headers.get('Content-Length',0))
     if not n: return {}
-    if n > 10 * 1024 * 1024:  # 10MB max — photos are compressed but still large
-        return {'_error': 'Request too large'}
     try: return json.loads(handler.rfile.read(n))
     except: return {}
 
@@ -380,19 +368,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = parsed.path
         qs   = urllib.parse.parse_qs(parsed.query)
 
-
-        # Check current session status — used by frontend polling to detect suspension
-        if path == '/api/auth/me':
-            tu = get_token_user(self)
-            if not tu:
-                respond(self, {'error': 'Unauthorized'}, 401); return
-            conn = get_db()
-            row = conn.execute(sql("SELECT role FROM users WHERE id=?"), (tu['id'],)).fetchone()
-            conn.close()
-            if not row:
-                respond(self, {'error': 'Not found'}, 404); return
-            respond(self, {'role': row['role']}); return
-
+        # Server time endpoint — lets browser sync countdown with server clock
         if path == '/api/time':
             import datetime
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -782,8 +758,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             brow = conn.execute(sql("SELECT * FROM bookings WHERE id=?"), (bid,)).fetchone()
             if brow:
-                b = dict(brow)
-                conn.execute(sql("UPDATE bookings SET accepted=1, status='ongoing' WHERE id=?"), (bid,))
+                conn.execute(sql("UPDATE bookings SET accepted=1 WHERE id=?"), (bid,))
                 conn.commit()
             conn.close()
             respond(self, {'success': True}); return
@@ -1084,21 +1059,7 @@ if __name__ == '__main__':
 
     threading.Thread(target=check_ongoing_services, daemon=True).start()
 
-    # Keep Neon DB alive — free tier sleeps after 5min inactivity
-    # This ping runs every 4 minutes to prevent that
-    def neon_keepalive():
-        time.sleep(30)  # wait for server to fully start first
-        while True:
-            try:
-                conn = get_db()
-                conn.execute("SELECT 1")
-                conn.close()
-            except Exception as e:
-                print(f"[neon-ping] Warning: {e}", flush=True)
-            time.sleep(240)  # every 4 minutes
-    threading.Thread(target=neon_keepalive, daemon=True).start()
-
-
+    # ThreadingHTTPServer handles multiple requests concurrently —
     # essential once more than one person uses the site at the same time
     server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     server.daemon_threads = True

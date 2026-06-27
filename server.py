@@ -285,29 +285,66 @@ def require_admin(handler):
         return None
     return tu
 
+def _pg_serialize(obj):
+    """JSON serializer that handles PostgreSQL-returned Python objects."""
+    import datetime, decimal
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.strftime('%Y-%m-%dT%H:%M:%SZ') if isinstance(obj, datetime.datetime) else obj.isoformat()
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    if isinstance(obj, (bytes, bytearray)):
+        return obj.decode('utf-8', errors='replace')
+    return str(obj)
+
 def fix_timestamps(obj):
-    """Normalize SQLite datetime strings (2026-06-23 14:30:00) to ISO 8601 (2026-06-23T14:30:00Z)"""
+    """Normalize all date/datetime values to ISO 8601 strings, handling both SQLite strings and PostgreSQL datetime objects."""
+    import datetime, decimal
     if isinstance(obj, dict):
-        return {k: fix_timestamps(v) if isinstance(v, str) and len(v)==19 and ' ' in v and v[10]==' '
-                else fix_timestamps(v) if isinstance(v, (dict, list)) else v
-                for k, v in obj.items()}
+        out = {}
+        for k, v in obj.items():
+            if isinstance(v, datetime.datetime):
+                out[k] = v.strftime('%Y-%m-%dT%H:%M:%SZ')
+            elif isinstance(v, datetime.date):
+                out[k] = v.isoformat()
+            elif isinstance(v, decimal.Decimal):
+                out[k] = float(v)
+            elif isinstance(v, str) and len(v) == 19 and v[10] == ' ':
+                out[k] = v.replace(' ', 'T') + 'Z'
+            elif isinstance(v, (dict, list)):
+                out[k] = fix_timestamps(v)
+            else:
+                out[k] = v
+        return out
     if isinstance(obj, list):
         return [fix_timestamps(i) for i in obj]
-    if isinstance(obj, str) and len(obj)==19 and obj[10]==' ':
+    if isinstance(obj, datetime.datetime):
+        return obj.strftime('%Y-%m-%dT%H:%M:%SZ')
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    if isinstance(obj, str) and len(obj) == 19 and obj[10] == ' ':
         return obj.replace(' ', 'T') + 'Z'
     return obj
 
 def respond(handler, data, status=200):
-    data = fix_timestamps(data)
-    body = json.dumps(data, default=str).encode()
-    handler.send_response(status)
-    for k,v in [('Content-Type','application/json'),('Content-Length',len(body)),
-                ('Access-Control-Allow-Origin','*'),
-                ('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS'),
-                ('Access-Control-Allow-Headers','Content-Type,Authorization')]:
-        handler.send_header(k,v)
-    handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        data = fix_timestamps(data)
+        body = json.dumps(data, default=_pg_serialize).encode()
+    except Exception as e:
+        body = json.dumps({'error': f'Serialization error: {e}'}).encode()
+        status = 500
+    try:
+        handler.send_response(status)
+        for k,v in [('Content-Type','application/json'),('Content-Length',len(body)),
+                    ('Access-Control-Allow-Origin','*'),
+                    ('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS'),
+                    ('Access-Control-Allow-Headers','Content-Type,Authorization')]:
+            handler.send_header(k,v)
+        handler.end_headers()
+        handler.wfile.write(body)
+    except BrokenPipeError:
+        pass  # Client disconnected — not a real error
 
 def read_body(handler):
     n = int(handler.headers.get('Content-Length',0))
@@ -769,7 +806,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             admin = conn.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()
             if admin:
                 amsg = f"📅 New booking: {body.get('client_name','Client')} booked {body.get('service','')} with {p.get('first_name','') if prow else ''} {p.get('last_name','') if prow else ''} on {body.get('date','')}."
-                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'booking', amsg))
+                conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'booking', amsg))
             conn.commit(); conn.close()
             respond(self, {'success':True,'booking_id':bid}); return
 
@@ -829,7 +866,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 (pid, phone)).fetchone()
             if booking_row:
                 if DATABASE_URL:
-                    _tr = conn.execute("SELECT EXTRACT(EPOCH FROM (NOW() - %s::timestamp))::int as secs", (booking_row[0],)).fetchone()
+                    _tr = conn.execute("SELECT EXTRACT(EPOCH FROM (NOW() - %s::timestamp))::int as secs", (booking_row.get('created_at') if hasattr(booking_row,'get') else booking_row[0],)).fetchone()
                 else:
                     _tr = conn.execute(sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row[0],)).fetchone()
                 created = _tr[0] if _tr else None
@@ -874,7 +911,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if admin:
                     prov = conn.execute(sql("SELECT first_name,last_name FROM providers WHERE id=?"), (pid,)).fetchone()
                     pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
-                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'flagged',
+                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'flagged',
                                   f"⭐{stars} low rating for {pname} from {name} ({phone}). Immediate review recommended."))
 
             if flags:
@@ -883,7 +920,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     prov = conn.execute(sql("SELECT first_name,last_name FROM providers WHERE id=?"), (pid,)).fetchone()
                     pname = f"{prov[0]} {prov[1]}" if prov else "a provider"
                     fmsg = f"🚩 Suspicious review for {pname}: " + "; ".join(flags)
-                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin[0], pid, 'flagged', fmsg))
+                    conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'flagged', fmsg))
 
             conn.commit(); conn.close()
             respond(self, {'success':True, 'new_rating': avg, 'review_count': len(rows), 'trust_score': new_ts}); return
@@ -1012,7 +1049,7 @@ if __name__ == '__main__':
                     if not already and admin:
                         conn.execute(
                             "INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)",
-                            (str(uuid.uuid4()), admin[0], '', 'info',
+                            (str(uuid.uuid4()), admin['id'], '', 'info',
                              f'⏰ Overdue service [{r["id"][:8]}]: {r["first_name"]} {r["last_name"]} — "{r["service"]}" for {r["client_name"]} has been ongoing for over 24 hours without completion.'))
                 conn.commit()
                 conn.close()

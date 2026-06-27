@@ -74,17 +74,19 @@ def sql(q):
 
 PORT = int(os.environ.get('PORT', 8000))
 
+import sys
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    db_type = 'PostgreSQL (Neon)' if DATABASE_URL else f'SQLite ({DB_PATH if not DATABASE_URL else ""})'
-    print(f"\n{'='*52}")
-    print(f"  DATABASE: {db_type}")
+    db_type = 'PostgreSQL (Neon)' if DATABASE_URL else f'SQLite'
+    print(f"\n{'='*52}", flush=True)
+    print(f"  DATABASE: {db_type}", flush=True)
     if DATABASE_URL:
-        # Show partial URL for debugging (hide password)
         safe_url = DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'connected'
-        print(f"  HOST: {safe_url[:50]}")
-    print(f"{'='*52}\n")
+        print(f"  HOST: {safe_url[:60]}", flush=True)
+    print(f"{'='*52}\n", flush=True)
+    sys.stdout.flush()
     if DATABASE_URL:
         # PostgreSQL uses SERIAL, TEXT, and different syntax
         statements = [
@@ -181,7 +183,7 @@ def init_db():
         c.execute("INSERT OR IGNORE INTO users (id,email,password_hash,role) VALUES (?,?,?,?)",
                   ('admin-001','michaelvincentnyak@gmail.com',admin_h,'admin'))
     conn.commit(); conn.close()
-    print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}")
+    print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}", flush=True)
 
 def hp(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -959,11 +961,11 @@ if __name__ == '__main__':
     # essential once more than one person uses the site at the same time
     server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), Handler)
     server.daemon_threads = True
-    print(f"\n{'='*52}")
-    print(f"  Trusty-Ka — Backend running")
-    print(f"  Open: http://localhost:{PORT}")
-    print(f"  Admin: michaelvincentnyak@gmail.com / Michael 009")
-    print(f"{'='*52}\n")
+    print(f"\n{'='*52}", flush=True)
+    print(f"  Trusty-Ka — Backend running", flush=True)
+    print(f"  Open: http://localhost:{PORT}", flush=True)
+    print(f"  Admin: michaelvincentnyak@gmail.com / Michael 009", flush=True)
+    print(f"{'='*52}\n", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

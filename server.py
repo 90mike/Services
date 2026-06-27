@@ -1077,6 +1077,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             broadcast('providers_updated', {})  # photos/info changed — update cards
             respond(self, {'success':True}); return
         respond(self, {'error':'not found'}, 404)
+
+if __name__ == '__main__':
     init_db()
 
     # Self-ping every 10 minutes to prevent Render free tier from sleeping

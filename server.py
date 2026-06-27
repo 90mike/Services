@@ -398,16 +398,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # ── SSE: real-time event stream ──
         if path == '/api/events':
             import queue as _q
-            # EventSource can't send headers, so token comes as ?tok= query param
+            # EventSource can't send custom headers, so token comes as ?tok= query param
             tok_param = qs.get('tok', [None])[0]
-            tu = None
+            uid, role = '', 'guest'
             if tok_param:
-                # Temporarily inject the token into headers for get_token_user
-                class _FakeHandler:
-                    def __init__(self, tok): self.headers = {'Authorization': 'Bearer ' + tok}
-                tu = get_token_user(_FakeHandler(tok_param))
-            uid  = tu['id']   if tu else ''
-            role = tu['role'] if tu else 'guest'
+                try:
+                    decoded = base64.b64decode(tok_param).decode()
+                    parts = decoded.split(':', 3)
+                    if len(parts) == 4:
+                        _uid, _role, _email, _sig = parts
+                        if verify_token_sig(_uid, _role, _email, _sig):
+                            uid, role = _uid, _role
+                except Exception:
+                    pass
             q = _q.Queue()
             _sse_add(q, uid, role)
             try:

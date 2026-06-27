@@ -368,7 +368,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = parsed.path
         qs   = urllib.parse.parse_qs(parsed.query)
 
-        # Server time endpoint — lets browser sync countdown with server clock
+        # Check current session status — used by frontend polling to detect suspension
+        if path == '/api/auth/me':
+            tu = get_token_user(self)
+            if not tu:
+                respond(self, {'error': 'Unauthorized'}, 401); return
+            conn = get_db()
+            row = conn.execute(sql("SELECT role FROM users WHERE id=?"), (tu['id'],)).fetchone()
+            conn.close()
+            if not row:
+                respond(self, {'error': 'Not found'}, 404); return
+            respond(self, {'role': row['role']}); return
+
         if path == '/api/time':
             import datetime
             now = datetime.datetime.now(datetime.timezone.utc)

@@ -939,6 +939,78 @@ function _show(name){
   if(name==='booking-status') setTimeout(loadClientStatus, 50);
   window.scrollTo(0,0);
 }
+/* ── Auto-polling: keeps UI in sync without manual refresh ── */
+(function startPolling(){
+  const FAST = 6000;   // 6s — for active pages with live state (bookings, notifications)
+  const SLOW = 15000;  // 15s — for less urgent data (provider list, admin stats)
+  let _timer = null;
+
+  async function poll(){
+    const page = S.page;
+
+    // ── Client booking status page ──
+    if(page === 'booking-status'){
+      loadClientStatus();
+      return;
+    }
+
+    // ── Provider dashboard ──
+    if(page === 'provider-dash'){
+      if(!S.provider) return;
+      // Check if suspended — kick out immediately if so
+      const tok = localStorage.getItem('ts_token');
+      if(tok){
+        const me = await api('/auth/me');
+        if(me && (me.role === 'suspended_provider' || me.role === 'removed_provider')){
+          showToast('Your account has been suspended by the administrator.','err',6000);
+          doLogout(); return;
+        }
+      }
+      loadPdNotifs();
+      loadPdBookings();
+      return;
+    }
+
+    // ── Admin panel ──
+    if(page === 'admin'){
+      if(!S.adminLoggedIn) return;
+      loadAdminData();
+      return;
+    }
+
+    // ── Search / provider grid ──
+    if(page === 'search'){
+      loadProviders(S.activeCat||'', S.activeQ||'', S.activeLoc||'');
+      return;
+    }
+  }
+
+  function schedule(){
+    clearTimeout(_timer);
+    // Use faster interval for live pages
+    const live = ['booking-status','provider-dash','admin'];
+    const ms = live.includes(S.page) ? FAST : SLOW;
+    _timer = setTimeout(async ()=>{ await poll(); schedule(); }, ms);
+  }
+
+  // Restart polling schedule whenever the page changes
+  const _origNav = nav;
+  window.nav = function(page, push=true){
+    _origNav(page, push);
+    schedule();
+  };
+
+  // Also hook _show for popstate
+  const _origShow = window._show;
+  window._show = function(name){
+    _origShow ? _origShow(name) : null;
+    schedule();
+  };
+
+  // Start polling on load
+  schedule();
+})();
+
 function showToast(msg,type='info',ms=3500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
@@ -1049,7 +1121,7 @@ async function loadProviders(cat='',q='',loc=''){
     const c=COLORS[p.id.charCodeAt(0)%COLORS.length];
     const b=BANNERS[p.id.charCodeAt(0)%BANNERS.length];
     const ini=((p.first_name||'')[0]||'')+((p.last_name||'')[0]||'');
-    const avHtml=p.profile_photo?`<img src="${p.profile_photo}" alt="${ini}"/>`:`<span>${ini.toUpperCase()}</span>`;
+    const avHtml=p.profile_photo?`<img src="${p.profile_photo}?t=${Math.floor(Date.now()/30000)}" alt="${ini}"/>`:`<span>${ini.toUpperCase()}</span>`;
     // Show top-rated badge only from position 1-3, only if eligible (20+ providers), only if they have ratings
     const showRank=topRatedEligible&&p.review_count>0&&i<3;
     return`<div class="pcard" onclick="openProfile('${p.id}')">
@@ -1099,26 +1171,38 @@ function doSearch(){
 // Search on Enter is handled via onkeydown on the inputs directly
 
 /* ── Profile ── */
+let _profileReqId = 0; // increments each call — stale responses are ignored
 async function openProfile(id){
+  const reqId = ++_profileReqId;
   nav('profile');
-  // Always reset contact state when viewing a new profile
   _hideContact();
-  const p=await api('/providers/'+id);
+
+  // Show a loading skeleton immediately so stale data is never visible
+  const av = document.getElementById('prof-av');
+  av.innerHTML = '<span style="opacity:.3">…</span>';
+  document.getElementById('prof-name').textContent = 'Loading…';
+  document.getElementById('prof-role').textContent = '';
+  document.getElementById('prof-bio').textContent = '';
+  document.getElementById('prof-svcs').innerHTML = '';
+  document.getElementById('prof-revs-preview').innerHTML = '';
+  document.getElementById('prof-work-photos').innerHTML = '';
+  S.curProvider = null; // clear stale provider so booking is impossible during load
+
+  const p = await api('/providers/'+id+'?t='+Date.now()); // cache-bust
+  if(reqId !== _profileReqId) return; // a newer openProfile() call won — discard this response
   if(p.error){showToast(p.error,'err');return;}
-  S.curProvider=p;
+  S.curProvider = p;
   const c=COLORS[p.id.charCodeAt(0)%COLORS.length];
   const ini=((p.first_name||'')[0]||'')+((p.last_name||'')[0]||'');
   document.getElementById('prof-bg').style.background=BANNERS[p.id.charCodeAt(0)%BANNERS.length];
-  const av=document.getElementById('prof-av');
   if(p.profile_photo){
-    av.innerHTML=`<img src="${p.profile_photo}" alt="${ini}" style="width:100%;height:100%;object-fit:cover"/>
+    av.innerHTML=`<img src="${p.profile_photo}?t=${Date.now()}" alt="${ini}" style="width:100%;height:100%;object-fit:cover"/>
       <div style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.55);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;pointer-events:none">🔍</div>`;
     av.style.background='';
   } else {
     av.innerHTML=`<span>${ini.toUpperCase()}</span>`;
     av.style.background=`linear-gradient(135deg,${c},${COLORS[(COLORS.indexOf(c)+3)%COLORS.length]})`;
   }
-  // Profile photo click = lightbox
   av.onclick=()=>{if(p.profile_photo) openLightbox([p.profile_photo],0);};
   av.style.cursor=p.profile_photo?'pointer':'default';
 
@@ -1137,15 +1221,13 @@ async function openProfile(id){
   document.getElementById('prof-revs-preview').innerHTML=rHtml;
   document.getElementById('prof-revs-all').innerHTML=rHtml;
 
-  // Work photos grid on profile
   const photos=(p.work_photos||[]).filter(Boolean);
   const wpEl=document.getElementById('prof-work-photos');
   if(photos.length){
-    // Store photos array on the grid element for lightbox access
     wpEl.dataset.photos=JSON.stringify(photos);
     wpEl.innerHTML=photos.map((src,i)=>
       `<div onclick="openWorkPhotoLightbox(this,${i})" data-idx="${i}" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;background:var(--bg4)">
-        <img src="${src}" alt="Work photo ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+        <img src="${src}?t=${Date.now()}" alt="Work photo ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block"/>
       </div>`
     ).join('');
   } else {

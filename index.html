@@ -68,7 +68,9 @@ body .s-wrap input, body.light-mode .s-wrap input{color:var(--text) !important}
 .s-wrap button{background:var(--green);border:none;border-radius:40px;padding:.82rem;font-family:'Outfit',sans-serif;font-weight:700;font-size:.95rem;color:#000;cursor:pointer}
 .s-wrap button:hover{background:var(--green2)}
 .cat-wrap{position:relative;overflow:hidden}
-.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;cursor:grab}
+.cats:active{cursor:grabbing}
+.cats::-webkit-scrollbar{display:none}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex-shrink:0;scroll-snap-align:start}
 .cats::-webkit-scrollbar{display:none}
@@ -310,7 +312,9 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
   .ad-metrics{grid-template-columns:repeat(4,1fr)}
   .cat-bar{padding:.6rem 0 .5rem;gap:8px}
   /* Show scroll hint on cat bar for laptop */
-  .cat-wrap{position:relative}
+  .cat-wrap{position:relative;overflow:hidden}
+  .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:1px;width:60px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none;z-index:1}
+  .cat-wrap::before{content:'';position:absolute;left:0;top:0;bottom:1px;width:60px;background:linear-gradient(to right,var(--bg),transparent);pointer-events:none;z-index:1}
   .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none}
 }
 @media(min-width:1400px){
@@ -2250,6 +2254,16 @@ setInterval(()=>{
   if(S.user){checkNotifs();if(S.provider&&S.provider.status==='approved'){loadPdNotifs();document.getElementById('dash-link').style.display='';}setInterval(()=>{checkNotifs();checkBookingConfirmed();},30000);checkBookingConfirmed();}
   if(S.adminLoggedIn&&S.page==='admin')loadAdminNotifs();
 },15000);
+// ── Category bar: drag & wheel scroll on desktop ──
+(function(){
+  const el = document.querySelector('.cats');
+  if(!el) return;
+  let down=false, startX=0, scrollLeft=0;
+  el.addEventListener('mousedown', e=>{ down=true; startX=e.pageX-el.offsetLeft; scrollLeft=el.scrollLeft; el.style.userSelect='none'; });
+  document.addEventListener('mouseup',  ()=>{ down=false; el.style.userSelect=''; });
+  el.addEventListener('mousemove', e=>{ if(!down) return; e.preventDefault(); el.scrollLeft=scrollLeft-(e.pageX-el.offsetLeft-startX); });
+  el.addEventListener('wheel', e=>{ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); el.scrollLeft+=e.deltaY*1.5; } }, {passive:false});
+})();
 </script>
 </body>
 </html>

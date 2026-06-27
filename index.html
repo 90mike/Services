@@ -939,76 +939,91 @@ function _show(name){
   if(name==='booking-status') setTimeout(loadClientStatus, 50);
   window.scrollTo(0,0);
 }
-/* ── Auto-polling: keeps UI in sync without manual refresh ── */
-(function startPolling(){
-  const FAST = 6000;   // 6s — for active pages with live state (bookings, notifications)
-  const SLOW = 15000;  // 15s — for less urgent data (provider list, admin stats)
-  let _timer = null;
+/* ── Real-time SSE: instant push from server, no polling ── */
+(function startSSE(){
+  let es = null;
+  let reconnectMs = 2000;
 
-  async function poll(){
-    const page = S.page;
+  function connect(){
+    const tok = localStorage.getItem('ts_token');
+    const connectUrl = API + '/events' + (tok ? '?tok='+encodeURIComponent(tok) : '');
+    es = new EventSource(connectUrl);
 
-    // ── Client booking status page ──
-    if(page === 'booking-status'){
-      loadClientStatus();
-      return;
-    }
+    es.onopen = () => { reconnectMs = 2000; };
 
-    // ── Provider dashboard ──
-    if(page === 'provider-dash'){
-      if(!S.provider) return;
-      // Check if suspended — kick out immediately if so
-      const tok = localStorage.getItem('ts_token');
-      if(tok){
-        const me = await api('/auth/me');
-        if(me && (me.role === 'suspended_provider' || me.role === 'removed_provider')){
-          showToast('Your account has been suspended by the administrator.','err',6000);
-          doLogout(); return;
+    es.addEventListener('providers_updated', () => {
+      // Refresh provider grid if on search page
+      if(S.page === 'search') loadProviders(S.activeCat||'', S.activeQ||'', S.activeLoc||'');
+      // If viewing a profile, refresh it too
+      if(S.page === 'profile' && S.curProvider) openProfile(S.curProvider.id);
+    });
+
+    es.addEventListener('new_booking', () => {
+      if(S.page === 'provider-dash') { loadPdBookings(); loadPdNotifs(); }
+      if(S.page === 'admin') loadAdminData();
+    });
+
+    es.addEventListener('booking_updated', () => {
+      if(S.page === 'provider-dash') loadPdBookings();
+      if(S.page === 'booking-status') loadClientStatus();
+      if(S.page === 'admin') loadAdminData();
+    });
+
+    es.addEventListener('booking_accepted', () => {
+      if(S.page === 'booking-status') loadClientStatus();
+      if(S.page === 'admin') loadAdminData();
+    });
+
+    es.addEventListener('new_notification', () => {
+      if(S.page === 'provider-dash') loadPdNotifs();
+      if(S.page === 'admin') loadAdminNotifs();
+    });
+
+    es.addEventListener('admin_updated', () => {
+      if(S.page === 'admin') { loadAdminData(); loadAdminNotifs(); }
+    });
+
+    es.addEventListener('account_updated', (e) => {
+      // Provider's account status changed (approved/rejected/unsuspended)
+      const d = JSON.parse(e.data||'{}');
+      if(S.provider){
+        S.provider.status = d.status;
+        if(d.status === 'approved'){
+          showToast('🎉 Your account has been approved!', 'ok', 6000);
+          loadPdDash(); nav('provider-dash');
+        } else if(d.status === 'rejected'){
+          showToast('Your application was not approved.', 'err', 6000);
+          nav('search');
         }
       }
-      loadPdNotifs();
-      loadPdBookings();
-      return;
-    }
+    });
 
-    // ── Admin panel ──
-    if(page === 'admin'){
-      if(!S.adminLoggedIn) return;
-      loadAdminData();
-      return;
-    }
+    es.addEventListener('force_logout', (e) => {
+      const d = JSON.parse(e.data||'{}');
+      const msg = d.reason === 'suspended'
+        ? '🚫 Your account has been suspended by the administrator.'
+        : '⚠️ Your account has been removed from the platform.';
+      showToast(msg, 'err', 8000);
+      doLogout();
+    });
 
-    // ── Search / provider grid ──
-    if(page === 'search'){
-      loadProviders(S.activeCat||'', S.activeQ||'', S.activeLoc||'');
-      return;
-    }
+    es.onerror = () => {
+      es.close();
+      // Reconnect with backoff (max 30s)
+      setTimeout(connect, reconnectMs);
+      reconnectMs = Math.min(reconnectMs * 1.5, 30000);
+    };
   }
 
-  function schedule(){
-    clearTimeout(_timer);
-    // Use faster interval for live pages
-    const live = ['booking-status','provider-dash','admin'];
-    const ms = live.includes(S.page) ? FAST : SLOW;
-    _timer = setTimeout(async ()=>{ await poll(); schedule(); }, ms);
-  }
+  // Start SSE connection when page loads
+  connect();
 
-  // Restart polling schedule whenever the page changes
-  const _origNav = nav;
-  window.nav = function(page, push=true){
-    _origNav(page, push);
-    schedule();
+  // Reconnect when user logs in or out (token changes)
+  // Expose reconnect so login/logout can trigger it
+  window._sseReconnect = function(){
+    try { es && es.close(); } catch(e){}
+    setTimeout(connect, 300);
   };
-
-  // Also hook _show for popstate
-  const _origShow = window._show;
-  window._show = function(name){
-    _origShow ? _origShow(name) : null;
-    schedule();
-  };
-
-  // Start polling on load
-  schedule();
 })();
 
 function showToast(msg,type='info',ms=3500){
@@ -1068,8 +1083,9 @@ async function doLogin(){
   S.user=data.user;
   if(data.user.role==='admin'){S.adminLoggedIn=true;document.getElementById('login-email').value='';document.getElementById('login-pass').value='';nav('admin');loadAdminData();}
   else if(data.user.role==='provider'){S.provider=data.provider;updateUI();if(data.provider&&data.provider.status==='approved'){loadPdDash();nav('provider-dash');}else{showToast('Your application is pending admin approval.','info');nav('search');}}
+  if(window._sseReconnect) window._sseReconnect();
 }
-function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;localStorage.removeItem('ts_token');updateUI();nav('search');}
+function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;localStorage.removeItem('ts_token');updateUI();nav('search');if(window._sseReconnect) window._sseReconnect();}
 async function doProviderLogin(){
   const email=document.getElementById('pl-email').value.trim();
   const pw=document.getElementById('pl-pass').value;

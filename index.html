@@ -940,93 +940,33 @@ function _show(name){
   window.scrollTo(0,0);
 }
 /* ── Real-time SSE: instant push from server, no polling ── */
-(function startSSE(){
-  let es = null;
-  let reconnectMs = 2000;
-
-  function connect(){
-    const tok = localStorage.getItem('ts_token');
-    const connectUrl = API + '/events' + (tok ? '?tok='+encodeURIComponent(tok) : '');
-    es = new EventSource(connectUrl);
-
-    es.onopen = () => { reconnectMs = 2000; };
-
-    es.addEventListener('providers_updated', () => {
-      // Refresh provider grid if on search page
-      if(S.page === 'search') loadProviders(S.activeCat||'', S.activeQ||'', S.activeLoc||'');
-      // If viewing a profile, refresh it too
-      if(S.page === 'profile' && S.curProvider) openProfile(S.curProvider.id);
-    });
-
-    es.addEventListener('new_booking', () => {
-      if(S.page === 'provider-dash') { loadPdBookings(); loadPdNotifs(); }
-      if(S.page === 'admin') loadAdminData();
-    });
-
-    es.addEventListener('booking_updated', () => {
-      if(S.page === 'provider-dash') loadPdBookings();
-      if(S.page === 'booking-status') loadClientStatus();
-      if(S.page === 'admin') loadAdminData();
-    });
-
-    es.addEventListener('booking_accepted', () => {
-      if(S.page === 'booking-status') loadClientStatus();
-      if(S.page === 'admin') loadAdminData();
-    });
-
-    es.addEventListener('new_notification', () => {
-      if(S.page === 'provider-dash') loadPdNotifs();
-      if(S.page === 'admin') loadAdminNotifs();
-    });
-
-    es.addEventListener('admin_updated', () => {
-      if(S.page === 'admin') { loadAdminData(); loadAdminNotifs(); }
-    });
-
-    es.addEventListener('account_updated', (e) => {
-      // Provider's account status changed (approved/rejected/unsuspended)
-      const d = JSON.parse(e.data||'{}');
-      if(S.provider){
-        S.provider.status = d.status;
-        if(d.status === 'approved'){
-          showToast('🎉 Your account has been approved!', 'ok', 6000);
-          loadPdDash(); nav('provider-dash');
-        } else if(d.status === 'rejected'){
-          showToast('Your application was not approved.', 'err', 6000);
-          nav('search');
-        }
+(function startPolling(){
+  const FAST = 7000, SLOW = 20000;
+  let _timer = null;
+  async function poll(){
+    const page = S.page;
+    if(page==='booking-status'){ loadClientStatus(); return; }
+    if(page==='provider-dash'){
+      if(!S.provider) return;
+      const me=await api('/auth/me');
+      if(me&&(me.role==='suspended_provider'||me.role==='removed_provider')){
+        showToast('Your account has been suspended by the administrator.','err',6000);
+        doLogout(); return;
       }
-    });
-
-    es.addEventListener('force_logout', (e) => {
-      const d = JSON.parse(e.data||'{}');
-      const msg = d.reason === 'suspended'
-        ? '🚫 Your account has been suspended by the administrator.'
-        : '⚠️ Your account has been removed from the platform.';
-      showToast(msg, 'err', 8000);
-      doLogout();
-    });
-
-    es.onerror = () => {
-      es.close();
-      // Reconnect with backoff (max 30s)
-      setTimeout(connect, reconnectMs);
-      reconnectMs = Math.min(reconnectMs * 1.5, 30000);
-    };
+      loadPdNotifs(); loadPdBookings(); return;
+    }
+    if(page==='admin'){ if(S.adminLoggedIn) loadAdminData(); return; }
+    if(page==='search'){ loadProviders(S.activeCat||'',S.activeQ||'',S.activeLoc||''); return; }
   }
-
-  // Start SSE connection when page loads
-  connect();
-
-  // Reconnect when user logs in or out (token changes)
-  // Expose reconnect so login/logout can trigger it
-  window._sseReconnect = function(){
-    try { es && es.close(); } catch(e){}
-    setTimeout(connect, 300);
-  };
-})();
-
-function showToast(msg,type='info',ms=3500){
+  function schedule(){
+    clearTimeout(_timer);
+    const live=['booking-status','provider-dash','admin'];
+    _timer=setTimeout(async()=>{ await poll(); schedule(); }, live.includes(S.page)?FAST:SLOW);
+  }
+  const _orig=window.nav;
+  window.nav=function(p,push=true){ _orig(p,push); schedule(); };
+  schedule();
+})();function showToast(msg,type='info',ms=3500){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+type;
   clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',ms);
@@ -1083,9 +1023,8 @@ async function doLogin(){
   S.user=data.user;
   if(data.user.role==='admin'){S.adminLoggedIn=true;document.getElementById('login-email').value='';document.getElementById('login-pass').value='';nav('admin');loadAdminData();}
   else if(data.user.role==='provider'){S.provider=data.provider;updateUI();if(data.provider&&data.provider.status==='approved'){loadPdDash();nav('provider-dash');}else{showToast('Your application is pending admin approval.','info');nav('search');}}
-  if(window._sseReconnect) window._sseReconnect();
 }
-function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;localStorage.removeItem('ts_token');updateUI();nav('search');if(window._sseReconnect) window._sseReconnect();}
+function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;localStorage.removeItem('ts_token');updateUI();nav('search');}
 async function doProviderLogin(){
   const email=document.getElementById('pl-email').value.trim();
   const pw=document.getElementById('pl-pass').value;
@@ -1944,7 +1883,11 @@ async function markBookingDone(bid){
 }
 async function saveProfile(){
   if(!S.provider)return;
-  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:document.getElementById('e-ph').value.trim(),location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:S.ppData||S.provider.profile_photo||'',work_photos:S.workPhotos.filter(Boolean)};
+  const photo=S.ppData||S.provider.profile_photo||'';
+  const workPhotos=S.workPhotos.filter(Boolean);
+  const totalMB=(photo.length+workPhotos.join('').length)/1024/1024;
+  if(totalMB>3.5){showToast('Photos are too large to save. Please use smaller images.','err',5000);return;}
+  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:document.getElementById('e-ph').value.trim(),location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:photo,work_photos:workPhotos};
   const res=await api('/providers/'+S.provider.id,'PUT',body);
   if(res.success){
     showToast('✅ Profile updated!','ok');
@@ -1964,23 +1907,57 @@ function renderPdSvcs(){const el=document.getElementById('pd-svc-list');if(!S.pd
 function addPdSvc(){const n=document.getElementById('pd-sn').value.trim(),p=document.getElementById('pd-sp').value.trim();if(!n||!p)return;S.pdSvcs.push({n,p});renderPdSvcs();document.getElementById('pd-sn').value='';document.getElementById('pd-sp').value='';}
 async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
 function renderPhotoGrid(){document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>`<div class="photo-slot ${ph?'has-photo':''}" id="ps${i}" onclick="trigPhotoUp(${i})">${ph?`<img src="${ph}" alt="Work photo"/>`:''}<div class="photo-slot-ov">${ph?`<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos[${i}]=null;renderPhotoGrid()">🗑 Remove</button>`:''}</div>${!ph?'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>':''}</div>`).join('');}
-function trigPhotoUp(i){const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{S.workPhotos[i]=ev.target.result;renderPhotoGrid();};r.readAsDataURL(f);};inp.click();}
-function handlePP(inp){
-  const f=inp.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    S.ppData=ev.target.result;
-    // Update the dashboard preview
-    document.getElementById('pd-pp-img').src=ev.target.result;
+function compressImage(file, maxW=600, quality=0.72){
+  return new Promise(resolve=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1, maxW/Math.max(img.width,img.height));
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.src=url;
+  });
+}
+async function pickProfilePhoto(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    showToast('Compressing photo…','info',2000);
+    const data=await compressImage(f, 600, 0.75);
+    S.ppData=data;
+    document.getElementById('pd-pp-img').src=data;
     document.getElementById('pd-pp-img').style.display='block';
     document.getElementById('pd-pp-init').style.display='none';
-    // Live-update in the profile page if open
     const profAv=document.getElementById('prof-av');
-    if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id){
-      profAv.innerHTML=`<img src="${ev.target.result}" alt=""/>`;
-    }
+    if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id)
+      profAv.innerHTML=`<img src="${data}" alt="" style="width:100%;height:100%;object-fit:cover"/>`;
   };
-  r.readAsDataURL(f);
+  inp.click();
+}
+function trigPhotoUp(i){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    showToast('Compressing photo…','info',2000);
+    const data=await compressImage(f, 800, 0.75);
+    S.workPhotos[i]=data; renderPhotoGrid();
+  };
+  inp.click();
+}
+async function handlePP(inp){
+  const f=inp.files[0]; if(!f) return;
+  showToast('Compressing photo…','info',2000);
+  const data=await compressImage(f, 600, 0.75);
+  S.ppData=data;
+  document.getElementById('pd-pp-img').src=data;
+  document.getElementById('pd-pp-img').style.display='block';
+  document.getElementById('pd-pp-init').style.display='none';
+  const profAv=document.getElementById('prof-av');
+  if(profAv&&S.curProvider&&S.provider&&S.curProvider.id===S.provider.id)
+    profAv.innerHTML=`<img src="${data}" alt="" style="width:100%;height:100%;object-fit:cover"/>`;
 }
 function removePP(){S.ppData=null;document.getElementById('pd-pp-img').style.display='none';document.getElementById('pd-pp-init').style.display='block';document.getElementById('pp-upload').value='';}
 

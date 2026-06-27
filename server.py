@@ -8,32 +8,6 @@ Database: PostgreSQL on Render (via DATABASE_URL env var), SQLite locally.
 """
 import http.server, json, hashlib, uuid, os, base64, urllib.parse, time, threading
 
-# ── SSE (Server-Sent Events) real-time push ───────────────────────────────────
-_sse_clients = []          # list of (queue, user_id, role)
-_sse_lock    = threading.Lock()
-
-def _sse_add(q, user_id='', role=''):
-    with _sse_lock:
-        _sse_clients.append({'q': q, 'user_id': user_id, 'role': role})
-
-def _sse_remove(q):
-    with _sse_lock:
-        _sse_clients[:] = [c for c in _sse_clients if c['q'] is not q]
-
-def broadcast(event, data, *, to_role=None, to_user=None, exclude_user=None):
-    """Push a real-time event to all matching connected clients."""
-    import queue as _q
-    msg = f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
-    with _sse_lock:
-        targets = list(_sse_clients)
-    for c in targets:
-        if to_role   and c['role']    != to_role:    continue
-        if to_user   and c['user_id'] != to_user:    continue
-        if exclude_user and c['user_id'] == exclude_user: continue
-        try:
-            c['q'].put_nowait(msg)
-        except Exception:
-            pass
 
 # ── Database abstraction ──────────────────────────────────────────────────────
 # Uses PostgreSQL when DATABASE_URL is set (Render production),
@@ -374,8 +348,10 @@ def respond(handler, data, status=200):
         pass  # Client disconnected — not a real error
 
 def read_body(handler):
-    n = int(handler.headers.get('Content-Length',0))
+    n = int(handler.headers.get('Content-Length', 0))
     if not n: return {}
+    if n > 10 * 1024 * 1024:  # 10MB max — photos are compressed but still large
+        return {'_error': 'Request too large'}
     try: return json.loads(handler.rfile.read(n))
     except: return {}
 
@@ -395,51 +371,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = parsed.path
         qs   = urllib.parse.parse_qs(parsed.query)
 
-        # ── SSE: real-time event stream ──
-        if path == '/api/events':
-            import queue as _q
-            # EventSource can't send custom headers, so token comes as ?tok= query param
-            tok_param = qs.get('tok', [None])[0]
-            uid, role = '', 'guest'
-            if tok_param:
-                try:
-                    decoded = base64.b64decode(tok_param).decode()
-                    parts = decoded.split(':', 3)
-                    if len(parts) == 4:
-                        _uid, _role, _email, _sig = parts
-                        if verify_token_sig(_uid, _role, _email, _sig):
-                            uid, role = _uid, _role
-                except Exception:
-                    pass
-            q = _q.Queue()
-            _sse_add(q, uid, role)
-            try:
-                self.send_response(200)
-                self.send_header('Content-Type',  'text/event-stream')
-                self.send_header('Cache-Control', 'no-cache')
-                self.send_header('Connection',    'keep-alive')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                self.wfile.write(b'event: ping\ndata: {}\n\n')
-                self.wfile.flush()
-                while True:
-                    try:
-                        msg = q.get(timeout=25)
-                    except _q.Empty:
-                        try:
-                            self.wfile.write(b': heartbeat\n\n')
-                            self.wfile.flush()
-                        except Exception:
-                            break
-                        continue
-                    try:
-                        self.wfile.write(msg.encode())
-                        self.wfile.flush()
-                    except Exception:
-                        break
-            finally:
-                _sse_remove(q)
-            return
 
         # Check current session status — used by frontend polling to detect suspension
         if path == '/api/auth/me':
@@ -740,10 +671,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), p['user_id'], pid, 'approved',
                                   "🎉 Your provider profile has been approved! Log in to manage your profile and start receiving bookings."))
             conn.commit(); conn.close()
-            if prow:
-                broadcast('account_updated', {'status': 'approved'}, to_user=dict(prow).get('user_id',''))
-            broadcast('providers_updated', {})
-            broadcast('admin_updated', {}, to_role='admin')
             respond(self, {'success':True}); return
 
         if path == '/api/admin/reject':
@@ -759,9 +686,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), p['user_id'], pid, 'rejected',
                                   f"Your application was not approved. Reason: {reason}"))
             conn.commit(); conn.close()
-            if prow:
-                broadcast('account_updated', {'status': 'rejected'}, to_user=dict(prow).get('user_id',''))
-            broadcast('admin_updated', {}, to_role='admin')
             respond(self, {'success':True}); return
 
         # Admin removes a provider entirely from the platform (revokes access + delists profile)
@@ -779,9 +703,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 conn.execute(sql("UPDATE users SET role='removed_provider' WHERE id=?"), (p['user_id'],))
             conn.execute(sql("UPDATE providers SET status='removed' WHERE id=?"), (pid,))
             conn.commit(); conn.close()
-            if p.get('user_id'): broadcast('force_logout', {'reason': 'removed'}, to_user=p['user_id'])
-            broadcast('providers_updated', {})
-            broadcast('admin_updated', {}, to_role='admin')
             respond(self, {'success':True}); return
 
         if path == '/api/admin/suspend':
@@ -799,9 +720,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                               f"🚫 Your account has been temporarily suspended. Reason: {reason}"))
                 conn.execute(sql("UPDATE users SET role='suspended_provider' WHERE id=?"), (p['user_id'],))
             conn.commit(); conn.close()
-            if p.get('user_id'): broadcast('force_logout', {'reason': 'suspended'}, to_user=p['user_id'])
-            broadcast('providers_updated', {})
-            broadcast('admin_updated', {}, to_role='admin')
             respond(self, {'success':True}); return
 
         if path == '/api/admin/unsuspend':
@@ -817,9 +735,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                              (str(uuid.uuid4()), uid, pid, 'info',
                               '✅ Your account suspension has been lifted. Welcome back!'))
             conn.commit(); conn.close()
-            if prow and dict(prow).get('user_id'): broadcast('account_updated', {'status': 'approved'}, to_user=dict(prow)['user_id'])
-            broadcast('providers_updated', {})
-            broadcast('admin_updated', {}, to_role='admin')
             respond(self, {'success':True}); return
 
         if path == '/api/admin/warn':
@@ -834,7 +749,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                              (str(uuid.uuid4()), uid, pid, 'warning',
                               f"⚠️ Admin message: {message}"))
             conn.commit(); conn.close()
-            if uid: broadcast('new_notification', {}, to_user=uid)
             respond(self, {'success':True}); return
 
         if path == '/api/admin/bookings/delete':
@@ -862,9 +776,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 b = dict(brow)
                 conn.execute(sql("UPDATE bookings SET accepted=1, status='ongoing' WHERE id=?"), (bid,))
                 conn.commit()
-                # Push to admin + the client (no user_id for client — broadcast to everyone for now)
-                broadcast('booking_accepted', {'booking_id': bid, 'provider_id': b.get('provider_id','')}, to_role='admin')
-                broadcast('booking_updated', {'booking_id': bid, 'status': 'ongoing'})
             conn.close()
             respond(self, {'success': True}); return
 
@@ -873,7 +784,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             conn.execute(sql("UPDATE bookings SET accepted=-1, status='rejected' WHERE id=?"), (bid,))
             conn.commit(); conn.close()
-            broadcast('booking_updated', {'booking_id': bid, 'status': 'rejected'})
             respond(self, {'success': True}); return
 
         if path == '/api/bookings':
@@ -914,10 +824,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 amsg = f"📅 New booking: {body.get('client_name','Client')} booked {body.get('service','')} with {p.get('first_name','') if prow else ''} {p.get('last_name','') if prow else ''} on {body.get('date','')}."
                 conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'booking', amsg))
             conn.commit(); conn.close()
-            if prow:
-                broadcast('new_booking', {'booking_id': bid, 'provider_id': pid}, to_user=dict(prow).get('user_id',''))
-            broadcast('new_booking', {'booking_id': bid, 'provider_id': pid}, to_role='admin')
-            broadcast('providers_updated', {})  # update search grid
             respond(self, {'success':True,'booking_id':bid}); return
 
         if path == '/api/bookings/complete':
@@ -925,8 +831,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             conn.execute(sql("UPDATE bookings SET status='completed' WHERE id=?"), (bid,))
             conn.commit(); conn.close()
-            broadcast('booking_updated', {'booking_id': bid, 'status': 'completed'})
-            broadcast('providers_updated', {})
             respond(self, {'success':True}); return
 
         if path == '/api/reviews':
@@ -1035,8 +939,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"), (str(uuid.uuid4()), admin['id'], pid, 'flagged', fmsg))
 
             conn.commit(); conn.close()
-            broadcast('providers_updated', {})   # rating/trust changed on search grid
-            broadcast('admin_updated', {}, to_role='admin')  # red-flag notifications
             respond(self, {'success':True, 'new_rating': avg, 'review_count': len(rows), 'trust_score': new_ts}); return
 
         if path == '/api/notifications':
@@ -1074,7 +976,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                  body.get('profile_photo',''),
                  json.dumps(body.get('work_photos',[])), pid))
             conn.commit(); conn.close()
-            broadcast('providers_updated', {})  # photos/info changed — update cards
             respond(self, {'success':True}); return
         respond(self, {'error':'not found'}, 404)
 

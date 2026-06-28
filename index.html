@@ -1106,7 +1106,7 @@ async function doLogin(){
   if(data.user.role==='admin'){S.adminLoggedIn=true;document.getElementById('login-email').value='';document.getElementById('login-pass').value='';nav('admin');loadAdminData();}
   else if(data.user.role==='provider'){S.provider=data.provider;updateUI();if(data.provider&&data.provider.status==='approved'){loadPdDash();nav('provider-dash');}else{showToast('Your application is pending admin approval.','info');nav('search');}}
 }
-function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;localStorage.removeItem('ts_token');updateUI();nav('search');}
+function doLogout(){S.adminLoggedIn=false;S.user=null;S.provider=null;S.workPhotos=[null,null,null,null,null,null];S.ppData=null;localStorage.removeItem('ts_token');updateUI();nav('search');}
 async function doProviderLogin(){
   const email=document.getElementById('pl-email').value.trim();
   const pw=document.getElementById('pl-pass').value;
@@ -1843,6 +1843,10 @@ async function loadPdDash(){
   document.getElementById('e-loc').value=p.location||'';
   document.getElementById('e-bio').value=p.bio||'';
   S.pdSvcs=(p.services||[]).map(s=>({n:s.n||s.name,p:s.p||s.price}));
+  // Always load THIS provider's own saved photos fresh — never trust whatever was
+  // left in memory from a previous session/provider, or photos can leak across accounts.
+  S.workPhotos=[...(p.work_photos||[]), ...Array(6).fill(null)].slice(0,6);
+  S.ppData=null;
   renderPdSvcs();loadPdNotifs();loadPdBookings();renderPhotoGrid();
   if(p.profile_photo){document.getElementById('pd-pp-img').src=p.profile_photo;document.getElementById('pd-pp-img').style.display='block';document.getElementById('pd-pp-init').style.display='none';}
 }
@@ -1998,7 +2002,7 @@ async function saveProfile(){
 async function savePhotos(){await saveProfile();}
 function renderPdSvcs(){const el=document.getElementById('pd-svc-list');if(!S.pdSvcs.length){el.innerHTML='<div style="font-size:.83rem;color:var(--text3)">No services yet.</div>';return;}el.innerHTML=S.pdSvcs.map((s,i)=>`<div class="svc-row" style="margin-bottom:.4rem"><span class="svc-name">${s.n}</span><div style="display:flex;align-items:center;gap:.45rem"><span class="svc-price">${s.p}</span><button style="background:none;border:1px solid var(--border2);border-radius:6px;padding:2px 7px;font-size:.7rem;color:var(--text3);cursor:pointer" onclick="S.pdSvcs.splice(${i},1);renderPdSvcs()">✕</button></div></div>`).join('');}
 function addPdSvc(){const n=document.getElementById('pd-sn').value.trim(),p=document.getElementById('pd-sp').value.trim();if(!n||!p)return;S.pdSvcs.push({n,p});renderPdSvcs();document.getElementById('pd-sn').value='';document.getElementById('pd-sp').value='';}
-async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
+async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||S.provider.profile_photo||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
 S.viewingPhotoIdx=null;
 function renderPhotoGrid(){
   document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>{

@@ -286,6 +286,15 @@ def init_db():
     conn.commit(); conn.close()
     print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}", flush=True)
 
+def validate_phone(raw):
+    """Validate and normalise Kenyan phone numbers. Returns normalised 07/01 form or None."""
+    import re
+    s = re.sub(r'[\s\-]', '', str(raw or ''))
+    m = re.match(r'^\+254([71]\d{8})$', s)
+    if m: return '0' + m.group(1)
+    if re.match(r'^0[71]\d{8}$', s): return s
+    return None
+
 def hp(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 # Server secret — tokens are signed with this so they can't be forged
@@ -840,7 +849,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/bookings':
             pid   = body.get('provider_id')
-            phone = body.get('client_phone','').strip()
+            phone = validate_phone(body.get('client_phone',''))
+            if not phone:
+                respond(self, {'error': 'Invalid phone number. Use 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx.'}, 400); return
             conn  = get_db()
             # Block provider from booking themselves
             if phone:
@@ -887,10 +898,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/reviews':
             pid   = body.get('provider_id')
-            name  = body.get('reviewer_name','Anonymous')
-            phone = body.get('client_phone','').strip()
+            name  = body.get('reviewer_name','').strip()
+            phone = validate_phone(body.get('client_phone',''))
             stars = int(body.get('stars', 5))
             text  = body.get('text','').strip()
+            if not phone:
+                respond(self, {'error': 'Invalid phone number format.'}, 400); return
             if not pid or not text:
                 respond(self, {'error':'provider_id and text required'}, 400); return
             if not phone:

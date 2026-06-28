@@ -930,15 +930,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 respond(self, {'error':'Reviews can only be left after a completed booking. Make sure you use the same phone number you booked with.'}, 403)
                 return
             booking = dict(booking)
-            # Check name matches (case-insensitive, partial match OK)
+            # Name check: only block if both names are present AND share no words at all
             booking_name = (booking.get('client_name') or '').lower().strip()
             reviewer_name_lower = name.lower().strip()
-            # Allow if either name contains the other (handles "Joseph" vs "joseph mwangi")
-            if booking_name and reviewer_name_lower and \
-               booking_name not in reviewer_name_lower and reviewer_name_lower not in booking_name:
-                conn.close()
-                respond(self, {'error': f'The name you entered doesn\'t match the name used when booking. Please use the same name you booked with.'}, 403)
-                return
+            if booking_name and reviewer_name_lower:
+                b_words = set(booking_name.split())
+                r_words = set(reviewer_name_lower.split())
+                # Pass if any word matches, or one contains the other
+                if not (b_words & r_words or
+                        booking_name in reviewer_name_lower or
+                        reviewer_name_lower in booking_name):
+                    conn.close()
+                    respond(self, {'error': "The name you entered doesn't match the name used when booking. Please use the same name you booked with."}, 403)
+                    return
 
             # ── Suspicious pattern detection ──
             flags = []
@@ -1089,29 +1093,45 @@ class Handler(http.server.BaseHTTPRequestHandler):
                          any(p.startswith('data:image') for p in work_photos if p)
 
             if has_base64 and CLOUDINARY_CLOUD:
+                # Store upload status so frontend can poll for it
+                _upload_status = {'done': False, 'profile_photo': profile_photo, 'work_photos': work_photos}
+
                 def do_upload():
-                    nonlocal profile_photo, work_photos
                     pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')
                     wps = [maybe_upload(p, 'trusty-ka/work') for p in work_photos]
                     try:
                         conn2 = get_db()
-                        conn2.execute(sql("UPDATE providers SET profile_photo=?,work_photos=? WHERE id=?"),
-                                      (pp, json.dumps(wps), pid))
+                        conn2.execute(sql("""UPDATE providers SET
+                            first_name=?,last_name=?,phone=?,location=?,bio=?,
+                            services=?,profile_photo=?,work_photos=? WHERE id=?"""),
+                            (body.get('first_name'), body.get('last_name'),
+                             body.get('phone'), body.get('location'), body.get('bio'),
+                             json.dumps(body.get('services',[])),
+                             pp, json.dumps(wps), pid))
                         conn2.commit(); conn2.close()
-                        print(f"[cloudinary] Photos uploaded for provider {pid}", flush=True)
+                        _upload_status['profile_photo'] = pp
+                        _upload_status['work_photos']   = wps
+                        _upload_status['done']          = True
+                        print(f"[cloudinary] Photos uploaded for {pid}", flush=True)
                     except Exception as e:
                         print(f"[cloudinary] DB update failed: {e}", flush=True)
+
                 threading.Thread(target=do_upload, daemon=True).start()
-                # Save text fields immediately, photos will update shortly after
+                # Save text fields + keep existing photos until Cloudinary finishes
                 conn = get_db()
+                existing = conn.execute(sql("SELECT profile_photo,work_photos FROM providers WHERE id=?"), (pid,)).fetchone()
+                ex_pp  = (existing or {}).get('profile_photo','') if existing else ''
+                ex_wps = json.loads((existing or {}).get('work_photos','[]') if existing else '[]')
                 conn.execute(sql("""UPDATE providers SET
-                    first_name=?,last_name=?,phone=?,location=?,bio=?,services=? WHERE id=?"""),
+                    first_name=?,last_name=?,phone=?,location=?,bio=?,services=?,
+                    profile_photo=?,work_photos=? WHERE id=?"""),
                     (body.get('first_name'), body.get('last_name'),
                      body.get('phone'), body.get('location'), body.get('bio'),
-                     json.dumps(body.get('services',[])), pid))
+                     json.dumps(body.get('services',[])),
+                     ex_pp, json.dumps(ex_wps), pid))
                 conn.commit(); conn.close()
                 respond(self, {'success': True, 'uploading': True,
-                               'message': 'Photos uploading to cloud in background'}); return
+                               'profile_photo': ex_pp, 'work_photos': ex_wps}); return
             else:
                 # No base64 — save everything directly (already Cloudinary URLs or empty)
                 pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')

@@ -286,15 +286,6 @@ def init_db():
     conn.commit(); conn.close()
     print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}", flush=True)
 
-def validate_phone(raw):
-    """Validate and normalise Kenyan phone numbers. Returns normalised 07/01 form or None."""
-    import re
-    s = re.sub(r'[\s\-]', '', str(raw or ''))
-    m = re.match(r'^\+254([71]\d{8})$', s)
-    if m: return '0' + m.group(1)
-    if re.match(r'^0[71]\d{8}$', s): return s
-    return None
-
 def hp(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 # Server secret — tokens are signed with this so they can't be forged
@@ -471,7 +462,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             phone = qs.get('phone',[''])[0].strip()
             conn = get_db()
             row = conn.execute(
-                sql("SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1"),
+                "SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1",
                 (pid, phone)).fetchone()
             conn.close()
             respond(self, {'can_review': bool(row)}); return
@@ -616,25 +607,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             p['services'] = json.loads(p.get('services','[]'))
             p['work_photos'] = json.loads(p.get('work_photos','[]'))
             p['reviews'] = [dict(r) for r in conn.execute(
-                sql('SELECT id, provider_id, reviewer_name, stars, text AS review_text, created_at FROM reviews WHERE provider_id=? ORDER BY created_at DESC LIMIT 10'), (pid,)).fetchall()]
-            # Normalise field name — PostgreSQL may return 'review_text' alias
-            for r in p['reviews']:
-                if 'review_text' in r and 'text' not in r:
-                    r['text'] = r.pop('review_text')
+                "SELECT * FROM reviews WHERE provider_id=? ORDER BY created_at DESC LIMIT 10",(pid,)).fetchall()]
             conn.close(); respond(self, p); return
 
         if len(parts)==3 and parts[0]=='api' and parts[1]=='notifications':
             uid = parts[2]
             conn = get_db()
             rows = [dict(r) for r in conn.execute(
-                sql("SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30"), (uid,)).fetchall()]
+                "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30",(uid,)).fetchall()]
             conn.close(); respond(self, rows); return
 
         if len(parts)==4 and parts[0]=='api' and parts[1]=='bookings' and parts[2]=='provider':
             pid = parts[3]
             conn = get_db()
             rows = [dict(r) for r in conn.execute(
-                sql("SELECT * FROM bookings WHERE provider_id=? ORDER BY created_at DESC"), (pid,)).fetchall()]
+                "SELECT * FROM bookings WHERE provider_id=? ORDER BY created_at DESC",(pid,)).fetchall()]
             conn.close(); respond(self, rows); return
 
         respond(self, {'error':'not found'}, 404)
@@ -853,9 +840,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/bookings':
             pid   = body.get('provider_id')
-            phone = validate_phone(body.get('client_phone',''))
-            if not phone:
-                respond(self, {'error': 'Invalid phone number. Use 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx.'}, 400); return
+            phone = body.get('client_phone','').strip()
             conn  = get_db()
             # Block provider from booking themselves
             if phone:
@@ -902,12 +887,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/reviews':
             pid   = body.get('provider_id')
-            name  = body.get('reviewer_name','').strip()
-            phone = validate_phone(body.get('client_phone',''))
+            name  = body.get('reviewer_name','Anonymous')
+            phone = body.get('client_phone','').strip()
             stars = int(body.get('stars', 5))
             text  = body.get('text','').strip()
-            if not phone:
-                respond(self, {'error': 'Invalid phone number format.'}, 400); return
             if not pid or not text:
                 respond(self, {'error':'provider_id and text required'}, 400); return
             if not phone:
@@ -924,33 +907,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 tu = get_token_user(self)
                 if tu and tu['role']=='provider' and pr.get('user_id') == tu['id']:
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
-            # Require an ongoing or completed booking with this phone for this provider
+            # Require a completed booking with this phone number for this provider
+            # Also verify that the name matches what was used during booking
             booking = conn.execute(
-                sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND (status='ongoing' OR status='completed') ORDER BY created_at DESC LIMIT 1"),
+                sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1"),
                 (pid, phone)).fetchone()
             if not booking:
                 conn.close()
-                respond(self, {'error':'No accepted booking found with this phone number for this provider. Make sure you use the same phone number you booked with.'}, 403)
+                respond(self, {'error':'Reviews can only be left after a completed booking. Make sure you use the same phone number you booked with.'}, 403)
                 return
             booking = dict(booking)
-            # Name check: only block if both names are present AND share no words at all
+            # Check name matches (case-insensitive, partial match OK)
             booking_name = (booking.get('client_name') or '').lower().strip()
             reviewer_name_lower = name.lower().strip()
-            if booking_name and reviewer_name_lower:
-                b_words = set(booking_name.split())
-                r_words = set(reviewer_name_lower.split())
-                # Pass if any word matches, or one contains the other
-                if not (b_words & r_words or
-                        booking_name in reviewer_name_lower or
-                        reviewer_name_lower in booking_name):
-                    conn.close()
-                    respond(self, {'error': "The name you entered doesn't match the name used when booking. Please use the same name you booked with."}, 403)
-                    return
+            # Allow if either name contains the other (handles "Joseph" vs "joseph mwangi")
+            if booking_name and reviewer_name_lower and \
+               booking_name not in reviewer_name_lower and reviewer_name_lower not in booking_name:
+                conn.close()
+                respond(self, {'error': f'The name you entered doesn\'t match the name used when booking. Please use the same name you booked with.'}, 403)
+                return
 
             # ── Suspicious pattern detection ──
             flags = []
             booking_row = conn.execute(
-                sql("SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1"),
+                "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
                 (pid, phone)).fetchone()
             if booking_row:
                 if DATABASE_URL:
@@ -1096,45 +1076,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
                          any(p.startswith('data:image') for p in work_photos if p)
 
             if has_base64 and CLOUDINARY_CLOUD:
-                # Store upload status so frontend can poll for it
-                _upload_status = {'done': False, 'profile_photo': profile_photo, 'work_photos': work_photos}
-
                 def do_upload():
+                    nonlocal profile_photo, work_photos
                     pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')
                     wps = [maybe_upload(p, 'trusty-ka/work') for p in work_photos]
                     try:
                         conn2 = get_db()
-                        conn2.execute(sql("""UPDATE providers SET
-                            first_name=?,last_name=?,phone=?,location=?,bio=?,
-                            services=?,profile_photo=?,work_photos=? WHERE id=?"""),
-                            (body.get('first_name'), body.get('last_name'),
-                             body.get('phone'), body.get('location'), body.get('bio'),
-                             json.dumps(body.get('services',[])),
-                             pp, json.dumps(wps), pid))
+                        conn2.execute(sql("UPDATE providers SET profile_photo=?,work_photos=? WHERE id=?"),
+                                      (pp, json.dumps(wps), pid))
                         conn2.commit(); conn2.close()
-                        _upload_status['profile_photo'] = pp
-                        _upload_status['work_photos']   = wps
-                        _upload_status['done']          = True
-                        print(f"[cloudinary] Photos uploaded for {pid}", flush=True)
+                        print(f"[cloudinary] Photos uploaded for provider {pid}", flush=True)
                     except Exception as e:
                         print(f"[cloudinary] DB update failed: {e}", flush=True)
-
                 threading.Thread(target=do_upload, daemon=True).start()
-                # Save text fields + keep existing photos until Cloudinary finishes
+                # Save text fields immediately, photos will update shortly after
                 conn = get_db()
-                existing = conn.execute(sql("SELECT profile_photo,work_photos FROM providers WHERE id=?"), (pid,)).fetchone()
-                ex_pp  = (existing or {}).get('profile_photo','') if existing else ''
-                ex_wps = json.loads((existing or {}).get('work_photos','[]') if existing else '[]')
                 conn.execute(sql("""UPDATE providers SET
-                    first_name=?,last_name=?,phone=?,location=?,bio=?,services=?,
-                    profile_photo=?,work_photos=? WHERE id=?"""),
+                    first_name=?,last_name=?,phone=?,location=?,bio=?,services=? WHERE id=?"""),
                     (body.get('first_name'), body.get('last_name'),
                      body.get('phone'), body.get('location'), body.get('bio'),
-                     json.dumps(body.get('services',[])),
-                     ex_pp, json.dumps(ex_wps), pid))
+                     json.dumps(body.get('services',[])), pid))
                 conn.commit(); conn.close()
                 respond(self, {'success': True, 'uploading': True,
-                               'profile_photo': ex_pp, 'work_photos': ex_wps}); return
+                               'message': 'Photos uploading to cloud in background'}); return
             else:
                 # No base64 — save everything directly (already Cloudinary URLs or empty)
                 pp  = maybe_upload(profile_photo, 'trusty-ka/profiles')

@@ -68,9 +68,7 @@ body .s-wrap input, body.light-mode .s-wrap input{color:var(--text) !important}
 .s-wrap button{background:var(--green);border:none;border-radius:40px;padding:.82rem;font-family:'Outfit',sans-serif;font-weight:700;font-size:.95rem;color:#000;cursor:pointer}
 .s-wrap button:hover{background:var(--green2)}
 .cat-wrap{position:relative;overflow:hidden}
-.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;cursor:grab}
-.cats:active{cursor:grabbing}
-.cats::-webkit-scrollbar{display:none}
+.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex-shrink:0;scroll-snap-align:start}
 .cats::-webkit-scrollbar{display:none}
@@ -311,37 +309,13 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
   .pd-metrics{grid-template-columns:repeat(4,1fr)}
   .ad-metrics{grid-template-columns:repeat(4,1fr)}
   .cat-bar{padding:.6rem 0 .5rem;gap:8px}
-  .cat-wrap{position:relative;overflow:hidden}
-  .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:1px;width:60px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none;z-index:1}
-  .cat-wrap::before{content:'';position:absolute;left:0;top:0;bottom:1px;width:60px;background:linear-gradient(to right,var(--bg),transparent);pointer-events:none;z-index:1}
-  /* Dashboard + Admin — constrain inner content */
-  .pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-tabs,.ad-body,.prof-info,.prof-body,.prof-tabs,.prof-revs-sec{max-width:1180px;margin-left:auto;margin-right:auto;box-sizing:border-box}
+  /* Show scroll hint on cat bar for laptop */
+  .cat-wrap{position:relative}
+  .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none}
 }
 @media(min-width:1400px){
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body,.pd-inner,.ad-inner{max-width:1360px}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
-  .pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-tabs,.ad-body,.prof-info,.prof-body,.prof-tabs,.prof-revs-sec{max-width:1360px}
-}
-@media(min-width:1680px){
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body,.pd-inner,.ad-inner{max-width:1580px}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:16px}
-  .hero{min-height:500px}
-  .pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-tabs,.ad-body,.prof-info,.prof-body,.prof-tabs,.prof-revs-sec{max-width:1580px}
-}
-@media(min-width:1920px){
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body,.pd-inner,.ad-inner{max-width:1780px}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
-  .hero{min-height:540px}
-  .modal{max-width:500px}
-  .pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-tabs,.ad-body,.prof-info,.prof-body,.prof-tabs,.prof-revs-sec{max-width:1780px}
-}
-@media(min-width:2560px){
-  html{font-size:18px}
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body,.pd-inner,.ad-inner{max-width:2300px}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:22px}
-  .card{border-radius:18px}
-  .modal{max-width:560px}
-  .pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-tabs,.ad-body,.prof-info,.prof-body,.prof-tabs,.prof-revs-sec{max-width:2300px}
+  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body{max-width:1320px}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 }
 </style>
 </head>
@@ -368,7 +342,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
       ✅ <strong>Job marked complete!</strong> Your honest review helps protect other Kenyans and builds trust on the platform.
     </div>
     <div class="fl" style="margin-bottom:.6rem"><label>Your name</label><input class="fi" id="rv-name" type="text" placeholder="Your name"/></div>
-    <div class="fl" style="margin-bottom:.6rem"><label>Phone number used for booking <span class="req">*</span></label><input class="fi" id="rv-phone" type="tel" placeholder="07xxxxxxxx or +2547xxxxxxxx"/></div>
+    <div class="fl" style="margin-bottom:.6rem"><label>Phone number used for booking <span class="req">*</span></label><input class="fi" id="rv-phone" type="tel" placeholder="07XX XXX XXX"/></div>
     <div class="fl" style="margin-bottom:.6rem"><label>Rating <span class="req">*</span></label>
       <div id="rv-stars" style="font-size:1.8rem;letter-spacing:4px;cursor:pointer;color:var(--text3)">
         <span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span>
@@ -423,7 +397,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <h2>📲 Book a service</h2>
     <p class="sub" id="bk-pname">Provider</p>
     <div class="fl" style="margin-bottom:.8rem"><label>Your name <span class="req">*</span></label><input class="fi" id="bk-name" type="text" placeholder="Your full name"/></div>
-    <div class="fl" style="margin-bottom:.8rem"><label>Your phone <span class="req">*</span></label><input class="fi" id="bk-phone" type="tel" placeholder="07xxxxxxxx or +2547xxxxxxxx"/></div>
+    <div class="fl" style="margin-bottom:.8rem"><label>Your phone <span class="req">*</span></label><input class="fi" id="bk-phone" type="tel" placeholder="07XX XXX XXX"/></div>
     <div class="fl" style="margin-bottom:.8rem"><label>Service <span class="req">*</span></label><select class="fi" id="bk-svc"></select></div>
     <div class="fl" style="margin-bottom:.8rem"><label>Date <span class="req">*</span></label><input class="fi" id="bk-date" type="date"/></div>
     <div class="fl" style="margin-bottom:.8rem"><label>Urgency</label>
@@ -537,7 +511,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <button class="cat" onclick="filterCat(this,'Childcare')">🧸 Childcare</button>
     <button class="cat" onclick="filterCat(this,'Cooking')">🍳 Cooking</button>
     <button class="cat" onclick="filterCat(this,'Gardening')">🌿 Gardening</button>
-    <button class="cat" onclick="filterCat(this,'Gym Technician')">🏋️ Gym Technician</button>
     <button class="cat" onclick="filterCat(this,'Other')">➕ Other</button>
     <button class="cat" onclick="filterCat(this,'Electrical')">⚡ Electrical</button>
     <button class="cat" onclick="filterCat(this,'Childcare')">👶 Childcare</button>
@@ -558,7 +531,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
         📋 Track my booking
       </div>
       <div style="display:flex;gap:.5rem;align-items:center">
-        <input class="fi" id="track-phone" type="tel" placeholder="07xxxxxxxx or +2547xxxxxxxx" style="flex:1;border-radius:30px;padding:.55rem 1rem"/>
+        <input class="fi" id="track-phone" type="tel" placeholder="07XX XXX XXX — phone used when booking" style="flex:1;border-radius:30px;padding:.55rem 1rem"/>
         <button onclick="trackBooking()" style="background:var(--green);border:none;border-radius:30px;padding:.55rem 1.1rem;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:700;color:#000;cursor:pointer;white-space:nowrap">Check →</button>
       </div>
       <div id="track-results" style="margin-top:.75rem"></div>
@@ -681,7 +654,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
         <div class="rg">
           <div class="fl"><label>First name <span class="req">*</span></label><input class="fi" id="r-fn" type="text" placeholder="e.g. Mary"/></div>
           <div class="fl"><label>Last name <span class="req">*</span></label><input class="fi" id="r-ln" type="text" placeholder="e.g. Wanjiku"/></div>
-          <div class="fl"><label>Phone <span class="req">*</span></label><input class="fi" id="r-ph" type="tel" placeholder="07xxxxxxxx or +2547xxxxxxxx"/></div>
+          <div class="fl"><label>Phone <span class="req">*</span></label><input class="fi" id="r-ph" type="tel" placeholder="07XX XXX XXX"/></div>
           <div class="fl"><label>Location <span class="req">*</span></label><input class="fi" id="r-loc" type="text" placeholder="e.g. Westlands, Nairobi"/></div>
           <div class="fl"><label>Category <span class="req">*</span></label>
             <select class="fi" id="r-cat"><option value="">Select category…</option>
@@ -718,7 +691,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
                 <option>Childcare</option>
                 <option>Cooking</option>
                 <option>Gardening</option>
-                <option>Gym Technician</option>
                 <option>Other</option>
               </optgroup>
             </select>
@@ -785,7 +757,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 
 <!-- PROVIDER DASHBOARD -->
 <div class="page" id="page-provider-dash">
-  <div style="position:relative">
+  <div class="pd-hero">
     <div class="pd-welcome">Welcome back 👋</div>
     <div class="pd-name-h" id="pd-name">My Dashboard</div>
     <span class="pd-status">✓ Verified provider — manage your profile below</span>
@@ -939,7 +911,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 
 <!-- ADMIN DASHBOARD -->
 <div class="page" id="page-admin">
-  <div class="ad-inner">
   <div class="ad-hdr">
     <div><div class="ad-title">Admin Dashboard</div><div class="ad-sub">michaelvincentnyak@gmail.com</div></div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -989,7 +960,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
       <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Phone</th><th>Action</th></tr></thead><tbody id="pending-svc-tbl"><tr><td colspan="6" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
     </div>
   </div>
-  </div><!-- /ad-inner -->
 </div>
 
 <script>
@@ -1095,14 +1065,7 @@ async function api(path,method='GET',body=null){
     return{error: msg};
   }
 }
-function validatePhone(raw){
-  // Accepts: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx, +2541xxxxxxxx
-  // Normalises to 07/01 format for display; returns null if invalid
-  const s = raw.replace(/[\s\-]/g,'');
-  if(/^\+254([71]\d{8})$/.test(s)) return '0'+s.slice(4); // +254 → 07/01
-  if(/^0[71]\d{8}$/.test(s)) return s;
-  return null;
-}
+function star(n){'★'.repeat(n)+'☆'.repeat(5-n); return '★'.repeat(n)+'☆'.repeat(5-n);}
 
 /* ── Auth ── */
 function handlePill(){
@@ -1190,7 +1153,7 @@ async function loadProviders(cat='',q='',loc=''){
     const showRank=topRatedEligible&&p.review_count>0&&i<3;
     return`<div class="pcard" onclick="openProfile('${p.id}')">
       <div class="pcard-banner" style="background:${b}">
-        ${showRank?('<div class="pcard-rank">#'+(i+1)+' Top Rated</div>'):''}
+        ${showRank?`<div class="pcard-rank">#${i+1} Top Rated</div>`:''}
         <div class="pcard-av" style="background:${c}22;color:${c};border-color:${c}">${avHtml}</div>
       </div>
       <div class="pcard-body">
@@ -1281,12 +1244,7 @@ async function openProfile(id){
   const svcs=p.services||[];
   document.getElementById('prof-svcs').innerHTML=svcs.length?svcs.map(s=>`<div class="svc-row"><span class="svc-name">${s.n||s.name}</span><span class="svc-price">${s.p||s.price}</span></div>`).join(''):'<div style="font-size:.85rem;color:var(--text3)">No services listed yet.</div>';
   const revs=p.reviews||[];
-  const rHtml=revs.length?revs.map(r=>{
-    const txt=r.text||r.review_text||'';
-    const nm=r.reviewer_name||'?';
-    const revBody=txt?('<div class="rev-text">'+txt+'</div>'):'';
-    return '<div class="rev-card"><div class="rev-top"><div class="rev-av">'+nm.substring(0,2).toUpperCase()+'</div><div><div class="rev-name">'+nm+'</div><div class="rev-stars">'+star(r.stars)+'</div></div><div class="rev-date">'+timeAgo(r.created_at)+'</div></div>'+revBody+'</div>';
-  }).join(''):'<div style="font-size:.85rem;color:var(--text3)">No reviews yet — be the first to book!</div>';
+  const rHtml=revs.length?revs.map(r=>`<div class="rev-card"><div class="rev-top"><div class="rev-av">${(r.reviewer_name||'?').substring(0,2).toUpperCase()}</div><div><div class="rev-name">${r.reviewer_name}</div><div class="rev-stars">${star(r.stars)}</div></div><div class="rev-date">${timeAgo(r.created_at)}</div></div><div class="rev-text">${r.text}</div></div>`).join(''):'<div style="font-size:.85rem;color:var(--text3)">No reviews yet — be the first to book!</div>';
   document.getElementById('prof-revs-preview').innerHTML=rHtml;
   document.getElementById('prof-revs-all').innerHTML=rHtml;
 
@@ -1310,36 +1268,10 @@ async function openProfile(id){
   document.getElementById('pt-photos').style.display='none';
   const isOwn=S.provider&&S.provider.id===p.id;
   document.getElementById('rv-own-profile-note').style.display=isOwn?'block':'none';
-
-  // Update tab labels with counts
-  const photoTab=document.querySelector('.ptab[onclick*="pt-photos"]');
-  if(photoTab) photoTab.textContent='📸 Photos'+(photos.length?' ('+photos.length+')':'');
-  const revTab=document.querySelector('.ptab[onclick*="pt-reviews"]');
-  if(revTab) revTab.textContent='Reviews'+(revs.length?' ('+revs.length+')':'');
-
-  // Show photo strip on overview if photos exist
-  const existingStrip=document.getElementById('prof-photo-strip');
-  if(existingStrip) existingStrip.remove();
-  if(photos.length){
-    const strip=document.createElement('div');
-    strip.id='prof-photo-strip';
-    strip.className='acard';
-    strip.innerHTML=`<div class="atitle">Work Photos <span style="font-size:.75rem;color:var(--text3);font-weight:400">— tap to view</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:.5rem">
-        ${photos.slice(0,6).map((src,i)=>`<div onclick="switchPTab(document.querySelector('.ptab[onclick*=pt-photos]'),'pt-photos')" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;background:var(--bg4)">
-          <img src="${src}?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;display:block"/>
-        </div>`).join('')}
-      </div>`;
-    document.getElementById('prof-revs-preview').insertAdjacentElement('afterend', strip);
-  }
+}
 function switchPTab(el,tid){
-  if(!el||!tid) return;
-  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  ['pt-overview','pt-reviews','pt-services','pt-photos'].forEach(id=>{
-    const el2=document.getElementById(id);
-    if(el2) el2.style.display=id===tid?'block':'none';
-  });
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  ['pt-overview','pt-reviews','pt-services','pt-photos'].forEach(id=>document.getElementById(id).style.display=id===tid?'block':'none');
   if(tid==='pt-reviews') initStarPicker();
 }
 
@@ -1355,11 +1287,9 @@ function openBookingModal(){
 }
 async function submitBooking(){
   const name=document.getElementById('bk-name').value.trim();
-  const rawPhone=document.getElementById('bk-phone').value.trim();
+  const phone=document.getElementById('bk-phone').value.trim();
   const date=document.getElementById('bk-date').value;
-  if(!name||!rawPhone||!date){showToast('Please fill in all required fields','err');return;}
-  const phone=validatePhone(rawPhone);
-  if(!phone){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}
+  if(!name||!phone||!date){showToast('Please fill in all required fields','err');return;}
   const urgency=document.getElementById('bk-urgency').value;
   const res=await api('/bookings','POST',{provider_id:S.curProvider.id,client_name:name,client_phone:phone,service:document.getElementById('bk-svc').value,date,notes:document.getElementById('bk-notes').value,urgency});
   if(res.error){showToast(res.error,'err');return;}
@@ -1385,46 +1315,53 @@ function paintStars(hoverVal){
   });
 }
 function openReviewModal(pid, booking=null){
-  // Always clear fields first so old values don't bleed through
-  document.getElementById('rv-name').value='';
-  document.getElementById('rv-phone').value='';
-  document.getElementById('rv-text').value='';
   if(booking){
-    if(booking.client_phone) document.getElementById('rv-phone').value=booking.client_phone;
-    if(booking.client_name)  document.getElementById('rv-name').value=booking.client_name;
+    const ph=document.getElementById('rv-phone');
+    if(ph) ph.value=booking.client_phone||'';
   }
   S.rvStars=5;
-  initStarPicker();
+  initStarPicker(); // attach click/hover handlers every time modal opens
   paintStars();
   document.getElementById('rv-modal').classList.add('show');
 }
 async function submitReview(){
   if(!S.curProvider){showToast('No provider selected','err');return;}
-  const name=document.getElementById('rv-name').value.trim();
-  if(!name){showToast('Please enter the name you used when booking','err');return;}
-  const rawPhone=document.getElementById('rv-phone').value.trim();
+  const name=document.getElementById('rv-name').value.trim()||'Anonymous';
+  const phone=document.getElementById('rv-phone').value.trim();
   const text=document.getElementById('rv-text').value.trim();
-  if(!rawPhone){showToast('Please enter the phone number you used for your booking','err');return;}
-  const phone=validatePhone(rawPhone);
-  if(!phone){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}
+  if(!phone){showToast('Please enter the phone number you used for your booking','err');return;}
   if(!text){showToast('Please write a short review','err');return;}
-  // Submit review first — server validates booking exists
-  const res=await api('/reviews','POST',{provider_id:S.curProvider.id,reviewer_name:name,client_phone:phone,stars:S.rvStars,text,booking_id:S.pendingReviewBid||null});
-  if(res.success){
-    // Only mark booking complete AFTER review succeeds
-    if(S.pendingReviewBid){
-      await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
-    }
-    document.getElementById('rv-modal').classList.remove('show');
-    showToast('⭐ Review submitted! Thank you.','ok');
-    S.pendingReviewBid=null; S._trackPhone=null;
-    if(S.page==='booking-status') loadClientStatus();
-    if(S.page==='profile'&&S.curProvider) openProfile(S.curProvider.id);
-  } else {
-    showToast(res.error||'Failed to submit review','err');
+  // Mark booking complete FIRST (server requires status='completed' to allow review)
+  if(S.pendingReviewBid){
+    const completeRes=await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
+    if(!completeRes.success){showToast('Failed to mark booking complete','err');return;}
   }
+  const res=await api('/reviews','POST',{provider_id:S.curProvider.id,reviewer_name:name,client_phone:phone,stars:S.rvStars,text,booking_id:S.pendingReviewBid||null});
+  if(res.error){showToast(res.error,'err');return;}
+  if(S.pendingReviewBid) S.pendingReviewBid=null;
+  closeModal('rv-modal');
+  // Star color feedback
+  if(S.rvStars>=4) showToast('🟢 Thank you! Great to hear!','ok',4000);
+  else if(S.rvStars===3) showToast('🟡 Thanks — uninspiring experience noted.','info',4000);
+  else {
+    // 1-2 stars — show complaint modal
+    S.pendingComplaintRating=S.rvStars;
+    document.getElementById('low-rating-modal').classList.add('show');
+  }
+  document.getElementById('rv-name').value='';
+  document.getElementById('rv-phone').value='';
+  document.getElementById('rv-text').value='';
+  S.rvStars=5; paintStars();
+  // Reload client status and provider profile
+  loadClientStatus();
+  if(S._trackPhone){
+    api('/bookings/client/'+encodeURIComponent(S._trackPhone)).then(d=>{
+      const el=document.getElementById('track-results');
+      if(el&&Array.isArray(d)) renderTrackResults(d,S._trackPhone,el);
+    });
+  }
+  if(S.curProvider) openProfile(S.curProvider.id);
 }
-
 async function submitComplaint(){
   const boxes=document.querySelectorAll('#low-rating-modal input[type=checkbox]:checked');
   const reasons=Array.from(boxes).map(b=>b.value);
@@ -1485,7 +1422,7 @@ async function loadClientStatus(){
     return `<div class="bk-status-bar">
       <div class="bk-status-title">${b.service} · ${b.date}${b.urgency?' · <span style="color:var(--gold)">'+b.urgency+'</span>':''}</div>
       <div class="bk-status-row"><span class="bk-pill ${pill}">${statusMsg}</span></div>
-      ${b.accepted===1&&b.status==='pending'?('<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>'+(b.provider_name||'')+'</strong></div>'):''}
+      ${b.accepted===1&&b.status==='pending'?`<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>${b.provider_name||''}</strong></div>`:''}
     </div>`;
   }).join('') || '<div class="bk-status-bar"><span class="bk-pill bk-pill-none">No past bookings</span></div>';
 
@@ -1696,10 +1633,8 @@ async function checkAppStatus(){
 
 S.trackTimers=[];
 async function trackBooking(){
-  const rawPhone=document.getElementById('track-phone').value.trim();
-  if(!rawPhone){showToast('Please enter the phone number you used when booking','err');return;}
-  const phone=validatePhone(rawPhone);
-  if(!phone){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}
+  const phone=document.getElementById('track-phone').value.trim();
+  if(!phone){showToast('Please enter the phone number you used when booking','err');return;}
   const el=document.getElementById('track-results');
   el.innerHTML='<div style="font-size:.82rem;color:var(--text3)">Checking…</div>';
   S.trackTimers.forEach(clearInterval); S.trackTimers=[];
@@ -1763,8 +1698,7 @@ async function clientTrackMarkComplete(bid,pid,phone){
   const pdata=await api('/providers/'+pid);
   if(pdata&&pdata.id) S.curProvider=pdata;
   S.pendingReviewBid=bid; S._trackPhone=phone;
-  // Pre-fill the review modal with the phone used for tracking
-  openReviewModal(pid, {client_phone: phone, client_name: ''});
+  openReviewModal(pid);
 }
 
 function toggleMode(){
@@ -1863,7 +1797,7 @@ async function openNotifModal(){
 
 /* ── Registration ── */
 function goStep(n){
-  if(n===2){const fn=document.getElementById('r-fn').value.trim(),rawPh=document.getElementById('r-ph').value.trim(),lo=document.getElementById('r-loc').value.trim(),ca=document.getElementById('r-cat').value,bi=document.getElementById('r-bio').value.trim();if(!fn||!rawPh||!lo||!ca||bi.length<20){showToast('Please fill all required fields (bio must be at least 20 chars).','err');return;}const ph=validatePhone(rawPh);if(!ph){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}document.getElementById('r-ph').value=ph;}
+  if(n===2){const fn=document.getElementById('r-fn').value.trim(),ph=document.getElementById('r-ph').value.trim(),lo=document.getElementById('r-loc').value.trim(),ca=document.getElementById('r-cat').value,bi=document.getElementById('r-bio').value.trim();if(!fn||!ph||!lo||!ca||bi.length<20){showToast('Please fill all required fields (bio must be at least 20 chars).','err');return;}}
   if(n===3&&!S.regSvcs.length){showToast('Add at least one service.','err');return;}
   if(n===4){const em=document.getElementById('r-em').value.trim(),pw=document.getElementById('r-pw').value,pw2=document.getElementById('r-pw2').value;if(!em||!pw){showToast('Email and password required.','err');return;}if(pw!==pw2){showToast('Passwords do not match.','err');return;}if(pw.length<6){showToast('Password must be at least 6 characters.','err');return;}if(!document.getElementById('r-id').value.trim()){showToast('Please enter your ID number.','err');return;}const fn=document.getElementById('r-fn').value.trim(),ln=document.getElementById('r-ln').value.trim();document.getElementById('rev-summary').innerHTML=`<p><strong>Name:</strong> ${fn} ${ln}</p><p><strong>Category:</strong> ${document.getElementById('r-cat').value}</p><p><strong>Location:</strong> ${document.getElementById('r-loc').value}</p><p><strong>Phone:</strong> ${document.getElementById('r-ph').value}</p><p><strong>Email:</strong> ${em}</p><p><strong>Services:</strong> ${S.regSvcs.map(s=>s.n+' ('+s.p+')').join(', ')||'None'}</p><p><strong>ID:</strong> ${document.getElementById('r-id').value}</p>`;}
   for(let i=1;i<=4;i++){const el=document.getElementById('rs'+i);if(el)el.style.display=i===n?'block':'none';const sn=document.getElementById('sn'+i),sl=document.getElementById('sl'+i);if(sn){sn.className='rsn'+(i<n?' done':i===n?' active':'');sl.className='rsl'+(i===n?' active':'');}}
@@ -1988,11 +1922,11 @@ async function loadPdBookings(){
           <button class="btn-no" style="font-size:.7rem;padding:3px 9px;margin-left:3px" onclick="rejectBooking('${b.id}')">✗ Decline</button>
         </td><td></td></tr>`;
     }
-    if((b.accepted===1||b.status==='ongoing') && b.status!=='completed'){
-      // Accepted/ongoing — show full client details including phone number
-      return `<tr style="background:rgba(29,185,84,.04)"><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">🔄 ongoing</span></td><td><span style="color:var(--text3);font-size:.75rem">Awaiting client review</span></td><td></td></tr>`;
+    if(b.accepted===1&&b.status==='pending'){
+      // Accepted — show full details including phone
+      return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">in progress</span></td><td>${`<button class="add-btn" style="font-size:.72rem;padding:4px 10px" onclick="confirmMarkDone('${b.id}',false)">Mark completed</button>`}</td><td></td></tr>`;
     }
-    return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}</td><td><span class="sp sp-v">✅ completed</span></td><td><span style="color:var(--green);font-size:.78rem;font-weight:700">✓ Done</span></td><td></td></tr>`;
+    return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}</td><td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td><td><span style="color:var(--green);font-size:.78rem;font-weight:700">✓ Done</span></td><td></td></tr>`;
   }).join('');
   // Start countdown timers for pending bookings
   setTimeout(injectProviderCountdowns, 50);
@@ -2028,72 +1962,29 @@ async function saveProfile(){
   // If any base64 images, warn user upload is happening
   const hasBase64 = (photo.startsWith('data:image')) || workPhotos.some(p=>p&&p.startsWith('data:image'));
   if(hasBase64) showToast('⬆️ Uploading photos to cloud…','info',8000);
-  const rawPhone=document.getElementById('e-ph').value.trim();
-  const phone=validatePhone(rawPhone);
-  if(!phone){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}
-  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:phone,location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:photo,work_photos:workPhotos};
+  const body={first_name:document.getElementById('e-fn').value.trim(),last_name:document.getElementById('e-ln').value.trim(),phone:document.getElementById('e-ph').value.trim(),location:document.getElementById('e-loc').value.trim(),bio:document.getElementById('e-bio').value.trim(),services:S.pdSvcs,profile_photo:photo,work_photos:workPhotos};
   const res=await api('/providers/'+S.provider.id,'PUT',body);
   if(res.success){
     showToast('✅ Profile updated!','ok');
     const t=document.getElementById('save-ok');t.style.display='block';setTimeout(()=>t.style.display='none',3000);
-    // Update with whatever URLs came back (existing ones during upload, final ones otherwise)
-    if(res.profile_photo) { body.profile_photo=res.profile_photo; S.provider.profile_photo=res.profile_photo; }
-    if(res.work_photos)   { body.work_photos=res.work_photos; S.provider.work_photos=res.work_photos;
-                            S.workPhotos=[...res.work_photos,...Array(6).fill(null)].slice(0,6); }
-    S.ppData=null;
+    // Use Cloudinary URLs returned by server (replaces base64 in memory)
+    if(res.profile_photo) body.profile_photo = res.profile_photo;
+    if(res.work_photos)   body.work_photos   = res.work_photos;
     Object.assign(S.provider, body);
+    S.ppData = null; // clear base64 now that it's on Cloudinary
+    S.workPhotos = res.work_photos ? [...res.work_photos, ...Array(6).fill(null)].slice(0,6) : S.workPhotos;
     if(S.provider.profile_photo){
       document.getElementById('pd-pp-img').src=S.provider.profile_photo;
       document.getElementById('pd-pp-img').style.display='block';
       document.getElementById('pd-pp-init').style.display='none';
-    }
-    // If uploading to Cloudinary in background, re-fetch after 15s to get final URLs
-    if(res.uploading){
-      showToast('⬆️ Photos uploading to Cloudinary… will appear shortly.','info',14000);
-      setTimeout(async()=>{
-        const fresh=await api('/providers/'+S.provider.id);
-        if(fresh && !fresh.error){
-          S.provider.profile_photo=fresh.profile_photo||S.provider.profile_photo;
-          S.provider.work_photos=fresh.work_photos||[];
-          S.workPhotos=[...(fresh.work_photos||[]),...Array(6).fill(null)].slice(0,6);
-          renderPhotoGrid();
-          if(fresh.profile_photo){
-            document.getElementById('pd-pp-img').src=fresh.profile_photo+'?t='+Date.now();
-            document.getElementById('pd-pp-img').style.display='block';
-          }
-          showToast('✅ Photos uploaded to Cloudinary!','ok',4000);
-        }
-      }, 15000);
     }
   } else showToast(res.error||'Failed to save','err');
 }
 async function savePhotos(){await saveProfile();}
 function renderPdSvcs(){const el=document.getElementById('pd-svc-list');if(!S.pdSvcs.length){el.innerHTML='<div style="font-size:.83rem;color:var(--text3)">No services yet.</div>';return;}el.innerHTML=S.pdSvcs.map((s,i)=>`<div class="svc-row" style="margin-bottom:.4rem"><span class="svc-name">${s.n}</span><div style="display:flex;align-items:center;gap:.45rem"><span class="svc-price">${s.p}</span><button style="background:none;border:1px solid var(--border2);border-radius:6px;padding:2px 7px;font-size:.7rem;color:var(--text3);cursor:pointer" onclick="S.pdSvcs.splice(${i},1);renderPdSvcs()">✕</button></div></div>`).join('');}
 function addPdSvc(){const n=document.getElementById('pd-sn').value.trim(),p=document.getElementById('pd-sp').value.trim();if(!n||!p)return;S.pdSvcs.push({n,p});renderPdSvcs();document.getElementById('pd-sn').value='';document.getElementById('pd-sp').value='';}
-async function savePdSvcs(){
-  if(!S.provider)return;
-  const body={
-    first_name:S.provider.first_name,last_name:S.provider.last_name,
-    phone:S.provider.phone,location:S.provider.location,bio:S.provider.bio,
-    services:S.pdSvcs,
-    profile_photo:S.ppData||S.provider.profile_photo||'',
-    work_photos:S.workPhotos.filter(Boolean).length?S.workPhotos.filter(Boolean):(S.provider.work_photos||[])
-  };
-  const res=await api('/providers/'+S.provider.id,'PUT',body);
-  if(res.success){
-    S.provider.services=S.pdSvcs;
-    showToast('✅ Services saved!','ok');
-  } else showToast('Failed to save services','err');
-}
-function renderPhotoGrid(){
-  document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>{
-    const removeBtn=ph?('<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos['+i+']=null;renderPhotoGrid()">🗑 Remove</button>'):'';
-    const inner=ph
-      ?('<img src="'+ph+'" alt="Work photo" style="width:100%;height:100%;object-fit:cover"/><div class="photo-slot-ov">'+removeBtn+'</div>')
-      :'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>';
-    return '<div class="photo-slot '+(ph?'has-photo':'')+'" id="ps'+i+'" onclick="trigPhotoUp('+i+')">'+inner+'</div>';
-  }).join('');
-}
+async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
+function renderPhotoGrid(){document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>`<div class="photo-slot ${ph?'has-photo':''}" id="ps${i}" onclick="trigPhotoUp(${i})">${ph?`<img src="${ph}" alt="Work photo"/>`:''}<div class="photo-slot-ov">${ph?`<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos[${i}]=null;renderPhotoGrid()">🗑 Remove</button>`:''}</div>${!ph?'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>':''}</div>`).join('');}
 function compressImage(file, maxW=600, quality=0.72){
   return new Promise(resolve=>{
     const img=new Image(), url=URL.createObjectURL(file);
@@ -2196,7 +2087,7 @@ async function loadAllBookings(){
     <td>${b.client_name}</td>
     <td>${b.service}</td>
     <td>${b.date}</td>
-    <td>${b.urgency?('<span style="font-size:.72rem;color:var(--gold);font-weight:700">'+b.urgency+'</span>'):'-'}</td>
+    <td>${b.urgency?`<span style="font-size:.72rem;color:var(--gold);font-weight:700">${b.urgency}</span>`:'-'}</td>
     <td>${b.client_phone}</td>
     <td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -2253,7 +2144,7 @@ async function loadPending(){
       <div class="vi-sub">${p.category} · ${p.location} · ${p.phone}</div>
       <div class="vi-bio">${(p.bio||'').substring(0,120)}…</div>
       <div style="font-size:.72rem;color:var(--text3);margin-top:3px">Submitted: ${timeAgo(p.submitted_at)} · REF: ${p.ref_code}</div>
-      ${(p.services||[]).length?('<div style="font-size:.73rem;color:var(--purple);margin-top:3px">Services: '+((p.services||[]).map(s=>s.n||s.name).join(', '))+'</div>'):''}
+      ${(p.services||[]).length?`<div style="font-size:.73rem;color:var(--purple);margin-top:3px">Services: ${(p.services||[]).map(s=>s.n||s.name).join(', ')}</div>`:''}
     </div>
     <div class="vi-acts">
       <button class="btn-ok" onclick="approveP('${p.id}')">✓ Approve</button>
@@ -2359,16 +2250,6 @@ setInterval(()=>{
   if(S.user){checkNotifs();if(S.provider&&S.provider.status==='approved'){loadPdNotifs();document.getElementById('dash-link').style.display='';}setInterval(()=>{checkNotifs();checkBookingConfirmed();},30000);checkBookingConfirmed();}
   if(S.adminLoggedIn&&S.page==='admin')loadAdminNotifs();
 },15000);
-// ── Category bar: drag & wheel scroll on desktop ──
-(function(){
-  const el = document.querySelector('.cats');
-  if(!el) return;
-  let down=false, startX=0, scrollLeft=0;
-  el.addEventListener('mousedown', e=>{ down=true; startX=e.pageX-el.offsetLeft; scrollLeft=el.scrollLeft; el.style.userSelect='none'; });
-  document.addEventListener('mouseup',  ()=>{ down=false; el.style.userSelect=''; });
-  el.addEventListener('mousemove', e=>{ if(!down) return; e.preventDefault(); el.scrollLeft=scrollLeft-(e.pageX-el.offsetLeft-startX); });
-  el.addEventListener('wheel', e=>{ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); el.scrollLeft+=e.deltaY*1.5; } }, {passive:false});
-})();
 </script>
 </body>
 </html>

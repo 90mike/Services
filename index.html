@@ -334,6 +334,16 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 </div>
 
 <!-- REVIEW MODAL (only accessible after client marks job complete) -->
+<div class="overlay" id="photo-view-modal">
+  <div class="modal" style="max-width:480px;text-align:center;padding:1rem">
+    <button class="modal-x" onclick="closeModal('photo-view-modal')">×</button>
+    <img id="photo-view-img" src="" alt="Work photo" style="width:100%;border-radius:var(--r);display:block;margin-bottom:.9rem"/>
+    <div style="display:flex;gap:.5rem;justify-content:center">
+      <button class="add-btn" style="font-size:.8rem;padding:.5rem 1rem" onclick="replaceWorkPhotoFromViewer()">🔄 Replace</button>
+      <button class="btn-no" style="font-size:.8rem;padding:.5rem 1rem;border-color:var(--red);color:var(--red)" onclick="removeWorkPhotoFromViewer()">🗑 Remove</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="rv-modal">
   <div class="modal" style="max-width:440px">
     <button class="modal-x" onclick="closeModal('rv-modal')">×</button>
@@ -1331,11 +1341,9 @@ async function submitReview(){
   const text=document.getElementById('rv-text').value.trim();
   if(!phone){showToast('Please enter the phone number you used for your booking','err');return;}
   if(!text){showToast('Please write a short review','err');return;}
-  // Mark booking complete FIRST (server requires status='completed' to allow review)
-  if(S.pendingReviewBid){
-    const completeRes=await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
-    if(!completeRes.success){showToast('Failed to mark booking complete','err');return;}
-  }
+  // The booking is marked 'completed' by the server itself, only once the review
+  // below is successfully inserted — never before. This guarantees a service can't
+  // show as completed without a real client review on record.
   const res=await api('/reviews','POST',{provider_id:S.curProvider.id,reviewer_name:name,client_phone:phone,stars:S.rvStars,text,booking_id:S.pendingReviewBid||null});
   if(res.error){showToast(res.error,'err');return;}
   if(S.pendingReviewBid) S.pendingReviewBid=null;
@@ -1405,8 +1413,8 @@ async function loadClientStatus(){
     return;
   }
   // Split bookings vs active services
-  const active=data.filter(b=>b.accepted===1&&b.status==='pending');
-  const rest=data.filter(b=>!(b.accepted===1&&b.status==='pending'));
+  const active=data.filter(b=>b.accepted===1&&(b.status==='ongoing'||b.status==='awaiting_review'));
+  const rest=data.filter(b=>!(b.accepted===1&&(b.status==='ongoing'||b.status==='awaiting_review')));
 
   // Render booking status cards
   bkEl.innerHTML = rest.map(b=>{
@@ -1422,7 +1430,7 @@ async function loadClientStatus(){
     return `<div class="bk-status-bar">
       <div class="bk-status-title">${b.service} · ${b.date}${b.urgency?' · <span style="color:var(--gold)">'+b.urgency+'</span>':''}</div>
       <div class="bk-status-row"><span class="bk-pill ${pill}">${statusMsg}</span></div>
-      ${b.accepted===1&&b.status==='pending'?`<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>${b.provider_name||''}</strong></div>`:''}
+      ${b.accepted===1&&(b.status==='ongoing'||b.status==='awaiting_review')?`<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>${b.provider_name||''}</strong></div>`:''}
     </div>`;
   }).join('') || '<div class="bk-status-bar"><span class="bk-pill bk-pill-none">No past bookings</span></div>';
 
@@ -1433,9 +1441,13 @@ async function loadClientStatus(){
     } else {
       svcEl.innerHTML = active.map(b=>{
         const uid='svc-card-'+b.id;
+        const doneNote = b.status==='awaiting_review'
+          ? `<div style="font-size:.78rem;color:var(--green);margin:.3rem 0">✅ Provider marked this job as done — please leave a review to complete it.</div>`
+          : '';
         return `<div class="bk-status-bar" id="${uid}">
           <div class="bk-status-title">🔧 Ongoing: <strong>${b.provider_name||'Provider'}</strong>'s ${b.service}</div>
           <div style="font-size:.78rem;color:var(--text2);margin:.3rem 0">Date: ${b.date}</div>
+          ${doneNote}
           <div style="margin-top:.5rem">
             <button class="rsub" style="font-size:.8rem;padding:.45rem 1rem" onclick="clientMarkComplete('${b.id}','${b.provider_id}')">✅ Mark Complete &amp; Review</button>
           </div>
@@ -1476,7 +1488,7 @@ async function checkBookingConfirmed(){
   if(!S.user) return;
   const data=await api('/bookings/client/'+encodeURIComponent(S.user.phone||S.user.email||''));
   if(!Array.isArray(data)) return;
-  const justAccepted=data.find(b=>b.accepted===1&&b.status==='pending'&&!sessionStorage.getItem('confirmed-'+b.id));
+  const justAccepted=data.find(b=>b.accepted===1&&b.status==='ongoing'&&!sessionStorage.getItem('confirmed-'+b.id));
   if(justAccepted){
     sessionStorage.setItem('confirmed-'+justAccepted.id,'1');
     document.getElementById('bk-confirmed-name').textContent=
@@ -1900,7 +1912,7 @@ async function loadPdBookings(){
   const newBks=data.filter(b=>b.accepted===0&&b.status==='pending');
   const badge=document.getElementById('pd-bk-badge');
   if(badge){if(newBks.length>0){badge.style.display='inline';badge.textContent=newBks.length;}else badge.style.display='none';}
-  const spMap={pending:'sp-p',completed:'sp-v',rejected:'sp-r'};
+  const spMap={pending:'sp-p',ongoing:'sp-p',awaiting_review:'sp-p',completed:'sp-v',rejected:'sp-r'};
   data.forEach(b=>S.bkCache[b.id]=b);
   tbody.innerHTML=data.map(b=>{
     const urg=b.urgency?`<span style="font-size:.7rem;color:var(--gold);font-weight:700">${b.urgency}</span> `:'';
@@ -1922,9 +1934,12 @@ async function loadPdBookings(){
           <button class="btn-no" style="font-size:.7rem;padding:3px 9px;margin-left:3px" onclick="rejectBooking('${b.id}')">✗ Decline</button>
         </td><td></td></tr>`;
     }
-    if(b.accepted===1&&b.status==='pending'){
-      // Accepted — show full details including phone
-      return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">in progress</span></td><td>${`<button class="add-btn" style="font-size:.72rem;padding:4px 10px" onclick="confirmMarkDone('${b.id}',false)">Mark completed</button>`}</td><td></td></tr>`;
+    if(b.status==='ongoing'){
+      // Accepted, in progress — show full details including phone
+      return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">in progress</span></td><td>${`<button class="add-btn" style="font-size:.72rem;padding:4px 10px" onclick="markBookingDone('${b.id}')">Mark completed</button>`}</td><td></td></tr>`;
+    }
+    if(b.status==='awaiting_review'){
+      return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">awaiting review</span></td><td><span style="color:var(--text3);font-size:.78rem">Waiting for client review</span></td><td></td></tr>`;
     }
     return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}</td><td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td><td><span style="color:var(--green);font-size:.78rem;font-weight:700">✓ Done</span></td><td></td></tr>`;
   }).join('');
@@ -1952,7 +1967,7 @@ function confirmMarkDone(bid,isAdmin){
 S.pendingReviewBid=null;S.pendingComplaintBid=null;S.pendingComplaintRating=0;
 async function markBookingDone(bid){
   const res=await api('/bookings/complete','POST',{booking_id:bid});
-  if(res.success){showToast('✅ Booking marked as completed. Client can now leave a review.','ok');loadPdBookings();}
+  if(res.success){showToast('✅ Marked as done. The client can now leave a review to complete the booking.','ok');loadPdBookings();}
   else showToast('Failed to update booking','err');
 }
 async function saveProfile(){
@@ -1984,7 +1999,42 @@ async function savePhotos(){await saveProfile();}
 function renderPdSvcs(){const el=document.getElementById('pd-svc-list');if(!S.pdSvcs.length){el.innerHTML='<div style="font-size:.83rem;color:var(--text3)">No services yet.</div>';return;}el.innerHTML=S.pdSvcs.map((s,i)=>`<div class="svc-row" style="margin-bottom:.4rem"><span class="svc-name">${s.n}</span><div style="display:flex;align-items:center;gap:.45rem"><span class="svc-price">${s.p}</span><button style="background:none;border:1px solid var(--border2);border-radius:6px;padding:2px 7px;font-size:.7rem;color:var(--text3);cursor:pointer" onclick="S.pdSvcs.splice(${i},1);renderPdSvcs()">✕</button></div></div>`).join('');}
 function addPdSvc(){const n=document.getElementById('pd-sn').value.trim(),p=document.getElementById('pd-sp').value.trim();if(!n||!p)return;S.pdSvcs.push({n,p});renderPdSvcs();document.getElementById('pd-sn').value='';document.getElementById('pd-sp').value='';}
 async function savePdSvcs(){if(!S.provider)return;const body={...S.provider,services:S.pdSvcs,profile_photo:S.ppData||'',work_photos:S.workPhotos.filter(Boolean)};const res=await api('/providers/'+S.provider.id,'PUT',body);if(res.success)showToast('✅ Services saved!','ok');else showToast('Failed to save','err');}
-function renderPhotoGrid(){document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>`<div class="photo-slot ${ph?'has-photo':''}" id="ps${i}" onclick="trigPhotoUp(${i})">${ph?`<img src="${ph}" alt="Work photo"/>`:''}<div class="photo-slot-ov">${ph?`<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos[${i}]=null;renderPhotoGrid()">🗑 Remove</button>`:''}</div>${!ph?'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>':''}</div>`).join('');}
+S.viewingPhotoIdx=null;
+function renderPhotoGrid(){
+  document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>{
+    if(ph){
+      // Filled slot: tapping the photo OPENS A VIEWER (never the file picker).
+      // A small always-visible badge (not hover-dependent) handles removal,
+      // so it works reliably on touch devices.
+      return `<div class="photo-slot has-photo" id="ps${i}" onclick="viewWorkPhoto(${i})">
+        <img src="${ph}" alt="Work photo"/>
+        <button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0" onclick="event.stopPropagation();removeWorkPhoto(${i})" aria-label="Remove photo">🗑</button>
+      </div>`;
+    }
+    return `<div class="photo-slot" id="ps${i}" onclick="trigPhotoUp(${i})">
+      <div style="font-size:1.6rem;color:var(--text3)">+</div>
+      <div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>
+    </div>`;
+  }).join('');
+}
+function viewWorkPhoto(i){
+  S.viewingPhotoIdx=i;
+  document.getElementById('photo-view-img').src=S.workPhotos[i];
+  document.getElementById('photo-view-modal').classList.add('show');
+}
+function removeWorkPhoto(i){
+  S.workPhotos[i]=null;
+  renderPhotoGrid();
+}
+function removeWorkPhotoFromViewer(){
+  if(S.viewingPhotoIdx!=null) removeWorkPhoto(S.viewingPhotoIdx);
+  closeModal('photo-view-modal');
+}
+function replaceWorkPhotoFromViewer(){
+  const i=S.viewingPhotoIdx;
+  closeModal('photo-view-modal');
+  if(i!=null) trigPhotoUp(i);
+}
 function compressImage(file, maxW=600, quality=0.72){
   return new Promise(resolve=>{
     const img=new Image(), url=URL.createObjectURL(file);
@@ -2080,7 +2130,7 @@ async function loadAllBookings(){
   const data=await api('/admin/bookings');
   const tbody=document.getElementById('all-bk-tbl');
   if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3)">No bookings yet</td></tr>';return;}
-  const spMap={pending:'sp-p',completed:'sp-v',rejected:'sp-r'};
+  const spMap={pending:'sp-p',ongoing:'sp-p',awaiting_review:'sp-p',completed:'sp-v',rejected:'sp-r'};
   data.forEach(b=>S.bkCache[b.id]=b);
   tbody.innerHTML=data.map(b=>`<tr>
     <td>${b.first_name||''} ${b.last_name||''}</td>
@@ -2100,7 +2150,7 @@ async function loadAllBookings(){
 }
 async function adminMarkDone(bid){
   const res=await api('/bookings/complete','POST',{booking_id:bid});
-  if(res.success){showToast('✅ Booking marked as completed.','ok');loadAllBookings();}
+  if(res.success){showToast('✅ Marked as done. Awaiting client review to complete.','ok');loadAllBookings();}
   else showToast('Failed to update booking','err');
 }
 async function adminToggleComplete(bid,status){

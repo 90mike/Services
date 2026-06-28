@@ -462,7 +462,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             phone = qs.get('phone',[''])[0].strip()
             conn = get_db()
             row = conn.execute(
-                "SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1",
+                "SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status IN ('ongoing','awaiting_review') LIMIT 1",
                 (pid, phone)).fetchone()
             conn.close()
             respond(self, {'can_review': bool(row)}); return
@@ -562,7 +562,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             rows = conn.execute("""SELECT b.*, p.first_name, p.last_name FROM bookings b
                                     LEFT JOIN providers p ON p.id=b.provider_id
-                                    WHERE b.status='pending' AND b.accepted=1
+                                    WHERE b.status IN ('ongoing','awaiting_review')
                                     ORDER BY b.created_at DESC""").fetchall()
             conn.close()
             respond(self, [dict(r) for r in rows]); return
@@ -881,7 +881,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/api/bookings/complete':
             bid = body.get('booking_id')
             conn = get_db()
-            conn.execute(sql("UPDATE bookings SET status='completed' WHERE id=?"), (bid,))
+            # NOTE: this does NOT mark the booking 'completed'. It signals the work is
+            # done and the booking is now awaiting the client's review. A booking only
+            # becomes 'completed' once a review is actually submitted for it (see
+            # /api/reviews below), so a service can never show as completed without
+            # a client review on record.
+            conn.execute(sql("UPDATE bookings SET status='awaiting_review' WHERE id=?"), (bid,))
             conn.commit(); conn.close()
             respond(self, {'success':True}); return
 
@@ -907,14 +912,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 tu = get_token_user(self)
                 if tu and tu['role']=='provider' and pr.get('user_id') == tu['id']:
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
-            # Require a completed booking with this phone number for this provider
-            # Also verify that the name matches what was used during booking
-            booking = conn.execute(
-                sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1"),
-                (pid, phone)).fetchone()
+            # Require an in-progress booking (accepted, not yet completed) with this phone
+            # number for this provider. Prefer the exact booking_id passed by the client
+            # (the one they're reviewing); fall back to the most recent matching booking.
+            # IMPORTANT: this booking is only flipped to 'completed' further down, AFTER
+            # the review has actually been inserted — a service must never show as
+            # completed without a real review on record.
+            bid_hint = body.get('booking_id')
+            booking = None
+            if bid_hint:
+                booking = conn.execute(
+                    sql("SELECT id, client_name FROM bookings WHERE id=? AND provider_id=? AND client_phone=? AND status IN ('ongoing','awaiting_review')"),
+                    (bid_hint, pid, phone)).fetchone()
+            if not booking:
+                booking = conn.execute(
+                    sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND status IN ('ongoing','awaiting_review') ORDER BY created_at DESC LIMIT 1"),
+                    (pid, phone)).fetchone()
             if not booking:
                 conn.close()
-                respond(self, {'error':'Reviews can only be left after a completed booking. Make sure you use the same phone number you booked with.'}, 403)
+                respond(self, {'error':'Reviews can only be left after a booking is in progress. Make sure you use the same phone number you booked with.'}, 403)
                 return
             booking = dict(booking)
             # Check name matches (case-insensitive, partial match OK)
@@ -930,8 +946,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # ── Suspicious pattern detection ──
             flags = []
             booking_row = conn.execute(
-                "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
-                (pid, phone)).fetchone()
+                "SELECT created_at FROM bookings WHERE id=?",
+                (booking['id'],)).fetchone()
             if booking_row:
                 if DATABASE_URL:
                     _tr = conn.execute("SELECT EXTRACT(EPOCH FROM (NOW() - %s::timestamp))::int as secs", (booking_row.get('created_at') if hasattr(booking_row,'get') else booking_row[0],)).fetchone()
@@ -939,7 +955,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     _tr = conn.execute(sql("SELECT (strftime('%s','now') - strftime('%s',?)) as secs"), (booking_row[0],)).fetchone()
                 created = _tr[0] if _tr else None
                 if created is not None and int(created) < 600:
-                    flags.append("Review submitted within 10 minutes of booking being marked completed")
+                    flags.append("Review submitted within 10 minutes of booking creation")
             same_phone_count = conn.execute(
                 sql("SELECT COUNT(DISTINCT provider_id) FROM bookings WHERE client_phone=? AND created_at > datetime('now','-1 day')"),
                 (phone,)).fetchone()[0]
@@ -953,6 +969,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             rid = str(uuid.uuid4())
             conn.execute(sql("INSERT INTO reviews (id,provider_id,reviewer_name,stars,text) VALUES (?,?,?,?,?)"), (rid, pid, name, stars, text))
+
+            # Only now — after the review is actually on record — does the booking
+            # become 'completed'. This is the single place a booking can reach that status.
+            conn.execute(sql("UPDATE bookings SET status='completed' WHERE id=?"), (booking['id'],))
 
             # Recalculate rating average
             rows = conn.execute(sql("SELECT stars FROM reviews WHERE provider_id=?"), (pid,)).fetchall()
@@ -1189,7 +1209,7 @@ if __name__ == '__main__':
                 old_ongoing = conn.execute(
                     "SELECT b.id, b.client_name, b.service, b.created_at, p.first_name, p.last_name "
                     "FROM bookings b LEFT JOIN providers p ON p.id=b.provider_id "
-                    "WHERE b.accepted=1 AND b.status='pending' AND b.created_at < ?",
+                    "WHERE b.status IN ('ongoing','awaiting_review') AND b.created_at < ?",
                     (cutoff,)).fetchall()
                 admin = conn.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()
                 for row in old_ongoing:

@@ -1190,7 +1190,7 @@ async function loadProviders(cat='',q='',loc=''){
     const showRank=topRatedEligible&&p.review_count>0&&i<3;
     return`<div class="pcard" onclick="openProfile('${p.id}')">
       <div class="pcard-banner" style="background:${b}">
-        ${showRank?`<div class="pcard-rank">#${i+1} Top Rated</div>`:''}
+        ${showRank?('<div class="pcard-rank">#'+(i+1)+' Top Rated</div>'):''}
         <div class="pcard-av" style="background:${c}22;color:${c};border-color:${c}">${avHtml}</div>
       </div>
       <div class="pcard-body">
@@ -1284,7 +1284,8 @@ async function openProfile(id){
   const rHtml=revs.length?revs.map(r=>{
     const txt=r.text||r.review_text||'';
     const nm=r.reviewer_name||'?';
-    return `<div class="rev-card"><div class="rev-top"><div class="rev-av">${nm.substring(0,2).toUpperCase()}</div><div><div class="rev-name">${nm}</div><div class="rev-stars">${star(r.stars)}</div></div><div class="rev-date">${timeAgo(r.created_at)}</div></div>${txt?`<div class="rev-text">${txt}</div>`:''}</div>`;
+    const revBody=txt?('<div class="rev-text">'+txt+'</div>'):'';
+    return '<div class="rev-card"><div class="rev-top"><div class="rev-av">'+nm.substring(0,2).toUpperCase()+'</div><div><div class="rev-name">'+nm+'</div><div class="rev-stars">'+star(r.stars)+'</div></div><div class="rev-date">'+timeAgo(r.created_at)+'</div></div>'+revBody+'</div>';
   }).join(''):'<div style="font-size:.85rem;color:var(--text3)">No reviews yet — be the first to book!</div>';
   document.getElementById('prof-revs-preview').innerHTML=rHtml;
   document.getElementById('prof-revs-all').innerHTML=rHtml;
@@ -1312,9 +1313,9 @@ async function openProfile(id){
 
   // Update tab labels with counts
   const photoTab=document.querySelector('.ptab[onclick*="pt-photos"]');
-  if(photoTab) photoTab.textContent=`📸 Photos${photos.length?` (${photos.length})`:''}`;
+  if(photoTab) photoTab.textContent='📸 Photos'+(photos.length?' ('+photos.length+')':'');
   const revTab=document.querySelector('.ptab[onclick*="pt-reviews"]');
-  if(revTab) revTab.textContent=`Reviews${revs.length?` (${revs.length})`:''}`;
+  if(revTab) revTab.textContent='Reviews'+(revs.length?' ('+revs.length+')':'');
 
   // Show photo strip on overview if photos exist
   const existingStrip=document.getElementById('prof-photo-strip');
@@ -1484,7 +1485,7 @@ async function loadClientStatus(){
     return `<div class="bk-status-bar">
       <div class="bk-status-title">${b.service} · ${b.date}${b.urgency?' · <span style="color:var(--gold)">'+b.urgency+'</span>':''}</div>
       <div class="bk-status-row"><span class="bk-pill ${pill}">${statusMsg}</span></div>
-      ${b.accepted===1&&b.status==='pending'?`<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>${b.provider_name||''}</strong></div>`:''}
+      ${b.accepted===1&&b.status==='pending'?('<div style="margin-top:.5rem;font-size:.78rem;color:var(--text2)">Provider: <strong>'+(b.provider_name||'')+'</strong></div>'):''}
     </div>`;
   }).join('') || '<div class="bk-status-bar"><span class="bk-pill bk-pill-none">No past bookings</span></div>';
 
@@ -2084,7 +2085,15 @@ async function savePdSvcs(){
     showToast('✅ Services saved!','ok');
   } else showToast('Failed to save services','err');
 }
-function renderPhotoGrid(){document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>`<div class="photo-slot ${ph?'has-photo':''}" id="ps${i}" onclick="trigPhotoUp(${i})">${ph?`<img src="${ph}" alt="Work photo"/>`:''}<div class="photo-slot-ov">${ph?`<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos[${i}]=null;renderPhotoGrid()">🗑 Remove</button>`:''}</div>${!ph?'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>':''}</div>`).join('');}
+function renderPhotoGrid(){
+  document.getElementById('photo-grid').innerHTML=S.workPhotos.map((ph,i)=>{
+    const removeBtn=ph?('<button style="background:rgba(255,255,255,.15);border:none;border-radius:6px;padding:4px 8px;font-size:.72rem;color:#fff;cursor:pointer;font-family:inherit;font-weight:600" onclick="event.stopPropagation();S.workPhotos['+i+']=null;renderPhotoGrid()">🗑 Remove</button>'):'';
+    const inner=ph
+      ?('<img src="'+ph+'" alt="Work photo" style="width:100%;height:100%;object-fit:cover"/><div class="photo-slot-ov">'+removeBtn+'</div>')
+      :'<div style="font-size:1.6rem;color:var(--text3)">+</div><div style="font-size:.68rem;color:var(--text3);margin-top:.2rem">Add photo</div>';
+    return '<div class="photo-slot '+(ph?'has-photo':'')+'" id="ps'+i+'" onclick="trigPhotoUp('+i+')">'+inner+'</div>';
+  }).join('');
+}
 function compressImage(file, maxW=600, quality=0.72){
   return new Promise(resolve=>{
     const img=new Image(), url=URL.createObjectURL(file);
@@ -2187,7 +2196,7 @@ async function loadAllBookings(){
     <td>${b.client_name}</td>
     <td>${b.service}</td>
     <td>${b.date}</td>
-    <td>${b.urgency?`<span style="font-size:.72rem;color:var(--gold);font-weight:700">${b.urgency}</span>`:'-'}</td>
+    <td>${b.urgency?('<span style="font-size:.72rem;color:var(--gold);font-weight:700">'+b.urgency+'</span>'):'-'}</td>
     <td>${b.client_phone}</td>
     <td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -2244,7 +2253,7 @@ async function loadPending(){
       <div class="vi-sub">${p.category} · ${p.location} · ${p.phone}</div>
       <div class="vi-bio">${(p.bio||'').substring(0,120)}…</div>
       <div style="font-size:.72rem;color:var(--text3);margin-top:3px">Submitted: ${timeAgo(p.submitted_at)} · REF: ${p.ref_code}</div>
-      ${(p.services||[]).length?`<div style="font-size:.73rem;color:var(--purple);margin-top:3px">Services: ${(p.services||[]).map(s=>s.n||s.name).join(', ')}</div>`:''}
+      ${(p.services||[]).length?('<div style="font-size:.73rem;color:var(--purple);margin-top:3px">Services: '+((p.services||[]).map(s=>s.n||s.name).join(', '))+'</div>'):''}
     </div>
     <div class="vi-acts">
       <button class="btn-ok" onclick="approveP('${p.id}')">✓ Approve</button>

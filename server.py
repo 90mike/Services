@@ -471,7 +471,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             phone = qs.get('phone',[''])[0].strip()
             conn = get_db()
             row = conn.execute(
-                "SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1",
+                sql("SELECT id FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' LIMIT 1"),
                 (pid, phone)).fetchone()
             conn.close()
             respond(self, {'can_review': bool(row)}); return
@@ -627,14 +627,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             uid = parts[2]
             conn = get_db()
             rows = [dict(r) for r in conn.execute(
-                "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30",(uid,)).fetchall()]
+                sql("SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 30"), (uid,)).fetchall()]
             conn.close(); respond(self, rows); return
 
         if len(parts)==4 and parts[0]=='api' and parts[1]=='bookings' and parts[2]=='provider':
             pid = parts[3]
             conn = get_db()
             rows = [dict(r) for r in conn.execute(
-                "SELECT * FROM bookings WHERE provider_id=? ORDER BY created_at DESC",(pid,)).fetchall()]
+                sql("SELECT * FROM bookings WHERE provider_id=? ORDER BY created_at DESC"), (pid,)).fetchall()]
             conn.close(); respond(self, rows); return
 
         respond(self, {'error':'not found'}, 404)
@@ -950,7 +950,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # ── Suspicious pattern detection ──
             flags = []
             booking_row = conn.execute(
-                "SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1",
+                sql("SELECT created_at FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1"),
                 (pid, phone)).fetchone()
             if booking_row:
                 if DATABASE_URL:

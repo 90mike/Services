@@ -1354,12 +1354,16 @@ function paintStars(hoverVal){
   });
 }
 function openReviewModal(pid, booking=null){
+  // Always clear fields first so old values don't bleed through
+  document.getElementById('rv-name').value='';
+  document.getElementById('rv-phone').value='';
+  document.getElementById('rv-text').value='';
   if(booking){
-    const ph=document.getElementById('rv-phone');
-    if(ph) ph.value=booking.client_phone||'';
+    if(booking.client_phone) document.getElementById('rv-phone').value=booking.client_phone;
+    if(booking.client_name)  document.getElementById('rv-name').value=booking.client_name;
   }
   S.rvStars=5;
-  initStarPicker(); // attach click/hover handlers every time modal opens
+  initStarPicker();
   paintStars();
   document.getElementById('rv-modal').classList.add('show');
 }
@@ -1742,7 +1746,8 @@ async function clientTrackMarkComplete(bid,pid,phone){
   const pdata=await api('/providers/'+pid);
   if(pdata&&pdata.id) S.curProvider=pdata;
   S.pendingReviewBid=bid; S._trackPhone=phone;
-  openReviewModal(pid);
+  // Pre-fill the review modal with the phone used for tracking
+  openReviewModal(pid, {client_phone: phone, client_name: ''});
 }
 
 function toggleMode(){
@@ -2014,16 +2019,34 @@ async function saveProfile(){
   if(res.success){
     showToast('✅ Profile updated!','ok');
     const t=document.getElementById('save-ok');t.style.display='block';setTimeout(()=>t.style.display='none',3000);
-    // Use Cloudinary URLs returned by server (replaces base64 in memory)
-    if(res.profile_photo) body.profile_photo = res.profile_photo;
-    if(res.work_photos)   body.work_photos   = res.work_photos;
+    // Update with whatever URLs came back (existing ones during upload, final ones otherwise)
+    if(res.profile_photo) { body.profile_photo=res.profile_photo; S.provider.profile_photo=res.profile_photo; }
+    if(res.work_photos)   { body.work_photos=res.work_photos; S.provider.work_photos=res.work_photos;
+                            S.workPhotos=[...res.work_photos,...Array(6).fill(null)].slice(0,6); }
+    S.ppData=null;
     Object.assign(S.provider, body);
-    S.ppData = null; // clear base64 now that it's on Cloudinary
-    S.workPhotos = res.work_photos ? [...res.work_photos, ...Array(6).fill(null)].slice(0,6) : S.workPhotos;
     if(S.provider.profile_photo){
       document.getElementById('pd-pp-img').src=S.provider.profile_photo;
       document.getElementById('pd-pp-img').style.display='block';
       document.getElementById('pd-pp-init').style.display='none';
+    }
+    // If uploading to Cloudinary in background, re-fetch after 15s to get final URLs
+    if(res.uploading){
+      showToast('⬆️ Photos uploading to Cloudinary… will appear shortly.','info',14000);
+      setTimeout(async()=>{
+        const fresh=await api('/providers/'+S.provider.id);
+        if(fresh && !fresh.error){
+          S.provider.profile_photo=fresh.profile_photo||S.provider.profile_photo;
+          S.provider.work_photos=fresh.work_photos||[];
+          S.workPhotos=[...(fresh.work_photos||[]),...Array(6).fill(null)].slice(0,6);
+          renderPhotoGrid();
+          if(fresh.profile_photo){
+            document.getElementById('pd-pp-img').src=fresh.profile_photo+'?t='+Date.now();
+            document.getElementById('pd-pp-img').style.display='block';
+          }
+          showToast('✅ Photos uploaded to Cloudinary!','ok',4000);
+        }
+      }, 15000);
     }
   } else showToast(res.error||'Failed to save','err');
 }

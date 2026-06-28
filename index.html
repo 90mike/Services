@@ -300,21 +300,26 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 
 /* ── Laptop / wide screen ── */
 @media(min-width:1024px){
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body,.pd-inner,.ad-inner{max-width:1180px;margin-left:auto;margin-right:auto}
+  .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+  .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+  .prof-info,.prof-body,.bks-wrap{max-width:1180px;margin-left:auto;margin-right:auto}
   .nav-top{padding:0 2rem}
   .hero{min-height:460px}
-  .hero-inner{gap:3rem;padding:0 2rem}
+  .hero-inner{gap:3rem;padding:0 2rem;max-width:1180px;margin:0 auto}
   .cards-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));padding:0 0 2rem}
   .prof-body{grid-template-columns:1fr 300px}
   .pd-metrics{grid-template-columns:repeat(4,1fr)}
   .ad-metrics{grid-template-columns:repeat(4,1fr)}
-  .cat-bar{padding:.6rem 0 .5rem;gap:8px}
+  .cats{padding:.6rem 0 .5rem;gap:8px}
   /* Show scroll hint on cat bar for laptop */
   .cat-wrap{position:relative}
   .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none}
 }
 @media(min-width:1400px){
-  .page-inner,.nav-top,.nav-links,.cat-bar,.sec-bar,.cards-grid,.reg-body{max-width:1320px}
+  .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+  .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+  .prof-info,.prof-body,.bks-wrap{max-width:1320px}
+  .hero-inner{max-width:1320px}
   .cards-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 }
 </style>
@@ -522,16 +527,12 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <button class="cat" onclick="filterCat(this,'Cooking')">🍳 Cooking</button>
     <button class="cat" onclick="filterCat(this,'Gardening')">🌿 Gardening</button>
     <button class="cat" onclick="filterCat(this,'Other')">➕ Other</button>
-    <button class="cat" onclick="filterCat(this,'Electrical')">⚡ Electrical</button>
-    <button class="cat" onclick="filterCat(this,'Childcare')">👶 Childcare</button>
-    <button class="cat" onclick="filterCat(this,'Beauty')">💇 Beauty</button>
-    <button class="cat" onclick="filterCat(this,'Barber')">✂️ Barber</button>
-    <button class="cat" onclick="filterCat(this,'Massage')">💆 Massage</button>
     <button class="cat" onclick="filterCat(this,'Tattoo')">🎨 Tattoo</button>
     <button class="cat" onclick="filterCat(this,'Key Cutting')">🔑 Key Cutting</button>
     <button class="cat" onclick="filterCat(this,'Moving')">🚛 Moving</button>
     <button class="cat" onclick="filterCat(this,'Househelp')">🏠 Househelp</button>
     <button class="cat" onclick="filterCat(this,'Personal Services')">🌟 Personal Services</button>
+    <button class="cat" onclick="filterCat(this,'Gym Technician')">🏋️ Gym Technician</button>
   </div>
   </div>
   <!-- TRACK MY BOOKING — always visible, no login needed -->
@@ -695,6 +696,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
                 <option>Nail &amp; Pedicure</option>
                 <option>Beauty</option>
                 <option>Barber</option>
+                <option>Gym Technician</option>
               </optgroup>
               <optgroup label="Other Services">
                 <option>Tailoring</option>
@@ -860,7 +862,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 
 <!-- BOOKING STATUS PAGE (client view of their bookings) -->
 <div class="page" id="page-booking-status">
-  <div style="padding:1.5rem">
+  <div class="bks-wrap" style="padding:1.5rem">
     <div style="font-weight:800;font-size:1.2rem;margin-bottom:.3rem">📋 My Bookings</div>
     <div style="font-size:.83rem;color:var(--text3);margin-bottom:1.25rem">Track your booking and service status here.</div>
 

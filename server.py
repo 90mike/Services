@@ -616,7 +616,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             p['services'] = json.loads(p.get('services','[]'))
             p['work_photos'] = json.loads(p.get('work_photos','[]'))
             p['reviews'] = [dict(r) for r in conn.execute(
-                "SELECT * FROM reviews WHERE provider_id=? ORDER BY created_at DESC LIMIT 10",(pid,)).fetchall()]
+                sql('SELECT id, provider_id, reviewer_name, stars, text AS review_text, created_at FROM reviews WHERE provider_id=? ORDER BY created_at DESC LIMIT 10'), (pid,)).fetchall()]
+            # Normalise field name — PostgreSQL may return 'review_text' alias
+            for r in p['reviews']:
+                if 'review_text' in r and 'text' not in r:
+                    r['text'] = r.pop('review_text')
             conn.close(); respond(self, p); return
 
         if len(parts)==3 and parts[0]=='api' and parts[1]=='notifications':
@@ -920,14 +924,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 tu = get_token_user(self)
                 if tu and tu['role']=='provider' and pr.get('user_id') == tu['id']:
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
-            # Require a completed booking with this phone number for this provider
-            # Also verify that the name matches what was used during booking
+            # Require an ongoing or completed booking with this phone for this provider
             booking = conn.execute(
-                sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND status='completed' ORDER BY created_at DESC LIMIT 1"),
+                sql("SELECT id, client_name FROM bookings WHERE provider_id=? AND client_phone=? AND (status='ongoing' OR status='completed') ORDER BY created_at DESC LIMIT 1"),
                 (pid, phone)).fetchone()
             if not booking:
                 conn.close()
-                respond(self, {'error':'Reviews can only be left after a completed booking. Make sure you use the same phone number you booked with.'}, 403)
+                respond(self, {'error':'No accepted booking found with this phone number for this provider. Make sure you use the same phone number you booked with.'}, 403)
                 return
             booking = dict(booking)
             # Name check: only block if both names are present AND share no words at all

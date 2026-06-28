@@ -1281,7 +1281,11 @@ async function openProfile(id){
   const svcs=p.services||[];
   document.getElementById('prof-svcs').innerHTML=svcs.length?svcs.map(s=>`<div class="svc-row"><span class="svc-name">${s.n||s.name}</span><span class="svc-price">${s.p||s.price}</span></div>`).join(''):'<div style="font-size:.85rem;color:var(--text3)">No services listed yet.</div>';
   const revs=p.reviews||[];
-  const rHtml=revs.length?revs.map(r=>`<div class="rev-card"><div class="rev-top"><div class="rev-av">${(r.reviewer_name||'?').substring(0,2).toUpperCase()}</div><div><div class="rev-name">${r.reviewer_name}</div><div class="rev-stars">${star(r.stars)}</div></div><div class="rev-date">${timeAgo(r.created_at)}</div></div><div class="rev-text">${r.text}</div></div>`).join(''):'<div style="font-size:.85rem;color:var(--text3)">No reviews yet — be the first to book!</div>';
+  const rHtml=revs.length?revs.map(r=>{
+    const txt=r.text||r.review_text||'';
+    const nm=r.reviewer_name||'?';
+    return `<div class="rev-card"><div class="rev-top"><div class="rev-av">${nm.substring(0,2).toUpperCase()}</div><div><div class="rev-name">${nm}</div><div class="rev-stars">${star(r.stars)}</div></div><div class="rev-date">${timeAgo(r.created_at)}</div></div>${txt?`<div class="rev-text">${txt}</div>`:''}</div>`;
+  }).join(''):'<div style="font-size:.85rem;color:var(--text3)">No reviews yet — be the first to book!</div>';
   document.getElementById('prof-revs-preview').innerHTML=rHtml;
   document.getElementById('prof-revs-all').innerHTML=rHtml;
 
@@ -1305,10 +1309,36 @@ async function openProfile(id){
   document.getElementById('pt-photos').style.display='none';
   const isOwn=S.provider&&S.provider.id===p.id;
   document.getElementById('rv-own-profile-note').style.display=isOwn?'block':'none';
-}
+
+  // Update tab labels with counts
+  const photoTab=document.querySelector('.ptab[onclick*="pt-photos"]');
+  if(photoTab) photoTab.textContent=`📸 Photos${photos.length?` (${photos.length})`:''}`;
+  const revTab=document.querySelector('.ptab[onclick*="pt-reviews"]');
+  if(revTab) revTab.textContent=`Reviews${revs.length?` (${revs.length})`:''}`;
+
+  // Show photo strip on overview if photos exist
+  const existingStrip=document.getElementById('prof-photo-strip');
+  if(existingStrip) existingStrip.remove();
+  if(photos.length){
+    const strip=document.createElement('div');
+    strip.id='prof-photo-strip';
+    strip.className='acard';
+    strip.innerHTML=`<div class="atitle">Work Photos <span style="font-size:.75rem;color:var(--text3);font-weight:400">— tap to view</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:.5rem">
+        ${photos.slice(0,6).map((src,i)=>`<div onclick="switchPTab(document.querySelector('.ptab[onclick*=pt-photos]'),'pt-photos')" style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;background:var(--bg4)">
+          <img src="${src}?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;display:block"/>
+        </div>`).join('')}
+      </div>`;
+    document.getElementById('prof-revs-preview').insertAdjacentElement('afterend', strip);
+  }
 function switchPTab(el,tid){
-  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
-  ['pt-overview','pt-reviews','pt-services','pt-photos'].forEach(id=>document.getElementById(id).style.display=id===tid?'block':'none');
+  if(!el||!tid) return;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['pt-overview','pt-reviews','pt-services','pt-photos'].forEach(id=>{
+    const el2=document.getElementById(id);
+    if(el2) el2.style.display=id===tid?'block':'none';
+  });
   if(tid==='pt-reviews') initStarPicker();
 }
 
@@ -1377,37 +1407,23 @@ async function submitReview(){
   const phone=validatePhone(rawPhone);
   if(!phone){showToast('Enter a valid Kenyan number: 07xxxxxxxx, 01xxxxxxxx, +2547xxxxxxxx or +2541xxxxxxxx','err');return;}
   if(!text){showToast('Please write a short review','err');return;}
-  // Mark booking complete FIRST (server requires status='completed' to allow review)
-  if(S.pendingReviewBid){
-    const completeRes=await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
-    if(!completeRes.success){showToast('Failed to mark booking complete','err');return;}
-  }
+  // Submit review first — server validates booking exists
   const res=await api('/reviews','POST',{provider_id:S.curProvider.id,reviewer_name:name,client_phone:phone,stars:S.rvStars,text,booking_id:S.pendingReviewBid||null});
-  if(res.error){showToast(res.error,'err');return;}
-  if(S.pendingReviewBid) S.pendingReviewBid=null;
-  closeModal('rv-modal');
-  // Star color feedback
-  if(S.rvStars>=4) showToast('🟢 Thank you! Great to hear!','ok',4000);
-  else if(S.rvStars===3) showToast('🟡 Thanks — uninspiring experience noted.','info',4000);
-  else {
-    // 1-2 stars — show complaint modal
-    S.pendingComplaintRating=S.rvStars;
-    document.getElementById('low-rating-modal').classList.add('show');
+  if(res.success){
+    // Only mark booking complete AFTER review succeeds
+    if(S.pendingReviewBid){
+      await api('/bookings/complete','POST',{booking_id:S.pendingReviewBid});
+    }
+    document.getElementById('rv-modal').classList.remove('show');
+    showToast('⭐ Review submitted! Thank you.','ok');
+    S.pendingReviewBid=null; S._trackPhone=null;
+    if(S.page==='booking-status') loadClientStatus();
+    if(S.page==='profile'&&S.curProvider) openProfile(S.curProvider.id);
+  } else {
+    showToast(res.error||'Failed to submit review','err');
   }
-  document.getElementById('rv-name').value='';
-  document.getElementById('rv-phone').value='';
-  document.getElementById('rv-text').value='';
-  S.rvStars=5; paintStars();
-  // Reload client status and provider profile
-  loadClientStatus();
-  if(S._trackPhone){
-    api('/bookings/client/'+encodeURIComponent(S._trackPhone)).then(d=>{
-      const el=document.getElementById('track-results');
-      if(el&&Array.isArray(d)) renderTrackResults(d,S._trackPhone,el);
-    });
-  }
-  if(S.curProvider) openProfile(S.curProvider.id);
 }
+
 async function submitComplaint(){
   const boxes=document.querySelectorAll('#low-rating-modal input[type=checkbox]:checked');
   const reasons=Array.from(boxes).map(b=>b.value);
@@ -1971,11 +1987,11 @@ async function loadPdBookings(){
           <button class="btn-no" style="font-size:.7rem;padding:3px 9px;margin-left:3px" onclick="rejectBooking('${b.id}')">✗ Decline</button>
         </td><td></td></tr>`;
     }
-    if(b.accepted===1&&b.status==='pending'){
-      // Accepted — show full details including phone
-      return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">in progress</span></td><td>${`<button class="add-btn" style="font-size:.72rem;padding:4px 10px" onclick="confirmMarkDone('${b.id}',false)">Mark completed</button>`}</td><td></td></tr>`;
+    if((b.accepted===1||b.status==='ongoing') && b.status!=='completed'){
+      // Accepted/ongoing — show full client details including phone number
+      return `<tr style="background:rgba(29,185,84,.04)"><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}<span style="color:var(--green);font-size:.78rem;font-weight:700">📞 ${b.client_phone}</span></td><td><span class="sp sp-p">🔄 ongoing</span></td><td><span style="color:var(--text3);font-size:.75rem">Awaiting client review</span></td><td></td></tr>`;
     }
-    return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}</td><td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td><td><span style="color:var(--green);font-size:.78rem;font-weight:700">✓ Done</span></td><td></td></tr>`;
+    return `<tr><td>${b.client_name}</td><td>${b.service}</td><td>${b.date}</td><td>${urg}</td><td><span class="sp sp-v">✅ completed</span></td><td><span style="color:var(--green);font-size:.78rem;font-weight:700">✓ Done</span></td><td></td></tr>`;
   }).join('');
   // Start countdown timers for pending bookings
   setTimeout(injectProviderCountdowns, 50);

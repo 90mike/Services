@@ -20,7 +20,7 @@ html,body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text)
 .nav-r{display:flex;align-items:center;gap:8px}
 .notif-red{position:absolute;top:-3px;right:-3px;width:9px;height:9px;background:var(--red);border-radius:50%;border:2px solid var(--bg);display:none}
 .pd-nb-badge{background:var(--red);color:#fff;border-radius:20px;font-size:.62rem;font-weight:700;padding:1px 5px;margin-left:4px;vertical-align:middle}
-.nav-links{display:flex;gap:6px;overflow-x:auto;padding:0 1.5rem 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.nav-links{display:flex;gap:6px;overflow-x:auto;padding:0 1.5rem 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab}
 .nav-links::-webkit-scrollbar{display:none}
 .nl{background:none;border:none;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:600;color:rgba(255,255,255,.5);padding:7px 16px;border-radius:30px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s}
 .nl:hover{color:#fff;background:rgba(255,255,255,.08)}
@@ -68,7 +68,8 @@ body .s-wrap input, body.light-mode .s-wrap input{color:var(--text) !important}
 .s-wrap button{background:var(--green);border:none;border-radius:40px;padding:.82rem;font-family:'Outfit',sans-serif;font-weight:700;font-size:.95rem;color:#000;cursor:pointer}
 .s-wrap button:hover{background:var(--green2)}
 .cat-wrap{position:relative;overflow:hidden}
-.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+.cats{display:flex;gap:8px;padding:.75rem 1.5rem;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;cursor:grab}
+.cats.grabbing,.pd-navs.grabbing,.ad-navs.grabbing,.nav-links.grabbing{cursor:grabbing;scroll-snap-type:none}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex-shrink:0;scroll-snap-align:start}
 .cats::-webkit-scrollbar{display:none}
@@ -193,7 +194,7 @@ select.fi{cursor:pointer}textarea.fi{resize:vertical;min-height:85px;line-height
 .pd-welcome{font-size:.8rem;color:var(--text3);margin-bottom:3px}
 .pd-name-h{font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin-bottom:.45rem}
 .pd-status{display:inline-flex;align-items:center;gap:5px;background:rgba(29,185,84,.12);border:1px solid rgba(29,185,84,.25);border-radius:20px;padding:4px 11px;font-size:.76rem;font-weight:600;color:var(--green)}
-.pd-navs{display:flex;gap:6px;overflow-x:auto;padding:.9rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pd-navs{display:flex;gap:6px;overflow-x:auto;padding:.9rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab}
 .pd-navs::-webkit-scrollbar{display:none}
 .pd-nb{background:var(--bg3);border:1px solid var(--border);border-radius:30px;padding:7px 16px;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;color:var(--text3);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s}
 .pd-nb:hover{border-color:var(--blue);color:var(--blue)}.pd-nb.active{background:var(--blue);border-color:var(--blue);color:#fff}
@@ -226,7 +227,7 @@ select.fi{cursor:pointer}textarea.fi{resize:vertical;min-height:85px;line-height
 .ad-badge{background:var(--red);color:#fff;border-radius:20px;font-size:.69rem;font-weight:700;padding:2px 8px}
 .logout-btn{background:none;border:1.5px solid var(--border2);border-radius:20px;padding:5px 13px;font-family:'Outfit',sans-serif;font-size:.78rem;color:var(--text3);cursor:pointer}
 .logout-btn:hover{border-color:var(--red);color:var(--red)}
-.ad-navs{display:flex;gap:6px;overflow-x:auto;padding:.9rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.ad-navs{display:flex;gap:6px;overflow-x:auto;padding:.9rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab}
 .ad-navs::-webkit-scrollbar{display:none}
 .ad-nb{background:var(--bg3);border:1px solid var(--border);border-radius:30px;padding:7px 16px;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;color:var(--text3);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s}
 .ad-nb:hover{border-color:var(--green);color:var(--green)}.ad-nb.active{background:var(--green);border-color:var(--green);color:#000}
@@ -298,15 +299,20 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
 @media(max-width:720px){.prof-body{grid-template-columns:1fr}.pd-metrics{grid-template-columns:1fr 1fr}.rg{grid-template-columns:1fr}.cards-grid{grid-template-columns:1fr 1fr}.svc-grid{grid-template-columns:1fr}.ad-metrics{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.cards-grid{grid-template-columns:1fr}.ptabs{gap:0}.ptab{font-size:.76rem;padding:.45rem .7rem}}
 
-/* ── Laptop / wide screen ── */
+/* ── Wide screens: 5 tiers, each with its own max content width and card density ── */
+.nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+.cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+.prof-info,.prof-body,.bks-wrap{margin-left:auto;margin-right:auto}
+
+/* Laptop — 1024–1399px: max-width 1180px, ~4 card columns */
 @media(min-width:1024px){
   .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
   .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
-  .prof-info,.prof-body,.bks-wrap{max-width:1180px;margin-left:auto;margin-right:auto}
+  .prof-info,.prof-body,.bks-wrap{max-width:1180px}
   .nav-top{padding:0 2rem}
   .hero{min-height:460px}
   .hero-inner{gap:3rem;padding:0 2rem;max-width:1180px;margin:0 auto}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));padding:0 0 2rem}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));padding:0 0 2rem}
   .prof-body{grid-template-columns:1fr 300px}
   .pd-metrics{grid-template-columns:repeat(4,1fr)}
   .ad-metrics{grid-template-columns:repeat(4,1fr)}
@@ -315,15 +321,46 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
   .cat-wrap{position:relative}
   .cat-wrap::after{content:'';position:absolute;right:0;top:0;bottom:0;width:48px;background:linear-gradient(to left,var(--bg),transparent);pointer-events:none}
 }
+/* Large laptop — 1400–1679px: max-width 1360px, ~4–5 card columns */
 @media(min-width:1400px){
   .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
   .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
-  .prof-info,.prof-body,.bks-wrap{max-width:1320px}
-  .hero-inner{max-width:1320px}
-  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .prof-info,.prof-body,.bks-wrap{max-width:1360px}
+  .hero-inner{max-width:1360px}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(255px,1fr))}
+}
+/* 1080p monitor — 1680–1919px: max-width 1580px, ~5 card columns */
+@media(min-width:1680px){
+  .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+  .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+  .prof-info,.prof-body,.bks-wrap{max-width:1580px}
+  .hero-inner{max-width:1580px}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  .prof-body{grid-template-columns:1fr 330px}
+}
+/* 1920p monitor — 1920–2559px: max-width 1780px, ~6 card columns */
+@media(min-width:1920px){
+  .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+  .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+  .prof-info,.prof-body,.bks-wrap{max-width:1780px}
+  .hero-inner{max-width:1780px}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+  .pd-metrics{grid-template-columns:repeat(4,1fr)}
+  .ad-metrics{grid-template-columns:repeat(4,1fr)}
+}
+/* 2K / 4K — 2560px+: max-width 2300px, ~6–7 card columns, slight font scale-up */
+@media(min-width:2560px){
+  html{font-size:18px}
+  .nav-top,.nav-links,.sec-bar,.cards-grid,.reg-body,
+  .cat-wrap,.pd-hero,.pd-navs,.pd-main,.ad-hdr,.ad-navs,.ad-main,
+  .prof-info,.prof-body,.bks-wrap{max-width:2300px}
+  .hero-inner{max-width:2300px}
+  .cards-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .prof-body{grid-template-columns:1fr 360px}
 }
 </style>
 </head>
+
 <body>
 
 <div class="toast" id="toast"></div>
@@ -2302,6 +2339,43 @@ async function initApp(){
   loadProviders();
 }
 initApp();
+
+// Several bars (category filters, dashboard tabs) scroll horizontally but had no
+// way to actually trigger that scroll with a plain laptop mouse — no visible
+// scrollbar, vertical wheel did nothing, and dragging over the buttons did nothing.
+// This makes them scroll on normal mouse-wheel and on click-drag, like a carousel.
+function enableHScroll(el){
+  if(!el || el._hScrollBound) return;
+  el._hScrollBound = true;
+  el.addEventListener('wheel', e=>{
+    if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // already horizontal (trackpad) — let it be
+    e.preventDefault();
+    el.scrollLeft += e.deltaY;
+  }, {passive:false});
+
+  let isDown=false, startX=0, startScroll=0, moved=0;
+  el.addEventListener('mousedown', e=>{
+    isDown=true; moved=0; el.classList.add('grabbing');
+    startX=e.pageX; startScroll=el.scrollLeft;
+  });
+  window.addEventListener('mouseup', ()=>{ isDown=false; el.classList.remove('grabbing'); });
+  el.addEventListener('mouseleave', ()=>{ isDown=false; el.classList.remove('grabbing'); });
+  el.addEventListener('mousemove', e=>{
+    if(!isDown) return;
+    const dx = e.pageX - startX;
+    moved = Math.max(moved, Math.abs(dx));
+    el.scrollLeft = startScroll - dx;
+  });
+  // If the mouse actually dragged (rather than just clicked), suppress the
+  // resulting click so dragging across a button doesn't accidentally select it.
+  el.addEventListener('click', e=>{
+    if(moved > 5){ e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+['.cats','.pd-navs','.ad-navs','.nav-links'].forEach(sel=>{
+  document.querySelectorAll(sel).forEach(enableHScroll);
+});
+
 setInterval(()=>{
   if(S.user){checkNotifs();if(S.provider&&S.provider.status==='approved'){loadPdNotifs();document.getElementById('dash-link').style.display='';}setInterval(()=>{checkNotifs();checkBookingConfirmed();},30000);checkBookingConfirmed();}
   if(S.adminLoggedIn&&S.page==='admin')loadAdminNotifs();

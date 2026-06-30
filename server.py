@@ -454,6 +454,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 respond(self, {'error': 'index.html not found'}, 404)
             return
 
+        # Serve favicon/app-icon assets (logo files). Only a small fixed allowlist
+        # is served this way — never arbitrary paths — to keep this safe.
+        _STATIC_ASSETS = {
+            '/favicon.ico': ('favicon.ico', 'image/x-icon'),
+            '/favicon-16.png': ('favicon-16.png', 'image/png'),
+            '/favicon-32.png': ('favicon-32.png', 'image/png'),
+            '/apple-touch-icon.png': ('apple-touch-icon.png', 'image/png'),
+            '/icon-192.png': ('icon-192.png', 'image/png'),
+            '/icon-512.png': ('icon-512.png', 'image/png'),
+        }
+        if path in _STATIC_ASSETS:
+            fname, ctype = _STATIC_ASSETS[path]
+            fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets', fname)
+            if os.path.exists(fp):
+                body = open(fp, 'rb').read()
+                self.send_response(200)
+                self.send_header('Content-Type', ctype)
+                self.send_header('Content-Length', len(body))
+                self.send_header('Cache-Control', 'public, max-age=604800')  # cache 1 week
+                self.end_headers()
+                self.wfile.write(body)
+            else:
+                self.send_response(404); self.end_headers()
+            return
+
         parts = [p for p in path.split('/') if p]
 
         # Check if a client (by phone) has a completed booking with this provider — used to gate reviews

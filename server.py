@@ -6,7 +6,7 @@ Open: http://localhost:8000
 
 Database: PostgreSQL on Render (via DATABASE_URL env var), SQLite locally.
 """
-import http.server, json, hashlib, uuid, os, base64, urllib.parse, time, threading
+import http.server, json, hashlib, uuid, os, base64, urllib.parse, time, threading, re
 
 # ── Cloudinary ────────────────────────────────────────────────────────────────
 CLOUDINARY_CLOUD = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
@@ -287,6 +287,13 @@ def init_db():
     print(f"[DB] Ready — {'PostgreSQL' if DATABASE_URL else 'SQLite'}", flush=True)
 
 def hp(pw): return hashlib.sha256(pw.encode()).hexdigest()
+
+_PHONE_RE = re.compile(r'^(\+254[17]\d{8}|0[17]\d{8})$')
+def is_valid_kenyan_phone(raw):
+    """Accepts +2541xxxxxxxx, +2547xxxxxxxx, 07xxxxxxxx, 01xxxxxxxx —
+    exactly 8 digits following the leading 1 or 7 in every form."""
+    v = (raw or '').replace(' ', '')
+    return bool(_PHONE_RE.match(v))
 
 # Server secret — tokens are signed with this so they can't be forged
 # On Render, set TOKEN_SECRET env var to a long random string for production
@@ -709,6 +716,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/api/providers/register':
             email = body.get('email','').strip().lower()
             pw    = body.get('password','')
+            phone = body.get('phone','').strip()
+            if not is_valid_kenyan_phone(phone):
+                respond(self, {'error':'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX'}, 400); return
             conn  = get_db()
             user_id = None
             if email and pw:
@@ -866,6 +876,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == '/api/bookings':
             pid   = body.get('provider_id')
             phone = body.get('client_phone','').strip()
+            if not is_valid_kenyan_phone(phone):
+                respond(self, {'error':'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX'}, 400); return
             conn  = get_db()
             # Block provider from booking themselves
             if phone:
@@ -925,6 +937,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 respond(self, {'error':'provider_id and text required'}, 400); return
             if not phone:
                 respond(self, {'error':'A phone number is required to verify your booking before leaving a review.'}, 400); return
+            if not is_valid_kenyan_phone(phone):
+                respond(self, {'error':'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX'}, 400); return
             conn = get_db()
             # Block self-review: check if this phone belongs to the provider being reviewed
             provider_row = conn.execute(sql("SELECT phone, user_id FROM providers WHERE id=?"), (pid,)).fetchone()

@@ -577,7 +577,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <button class="cat" onclick="filterCat(this,'Personal Services')">🌟 Personal Services</button>
     <button class="cat" onclick="filterCat(this,'Personal Trainer')">🏋️ Personal Trainer</button>
     <button class="cat" onclick="filterCat(this,'Mobile Mechanic')">🚗 Mobile Mechanic</button>
-    <button class="cat" onclick="filterCat(this,'Auto Repair')">🔩 Auto Repair (Garage)</button>
   </div>
   </div>
   <!-- TRACK MY BOOKING — always visible, no login needed -->
@@ -745,7 +744,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
               </optgroup>
               <optgroup label="Automotive">
                 <option>Mobile Mechanic</option>
-                <option>Auto Repair (Garage)</option>
               </optgroup>
               <optgroup label="Other Services">
                 <option>Tailoring</option>
@@ -1248,6 +1246,17 @@ function filterCat(el, cat){
     loadProviders(cat, S.activeQ||'', S.activeLoc||'');
   }
 }
+// Validates Kenyan phone numbers in the four accepted formats:
+//   +2541xxxxxxxx, +2547xxxxxxxx, 07xxxxxxxx, 01xxxxxxxx
+// In every case exactly 8 digits follow the leading 1 or 7. Spaces are
+// stripped before checking, so "07XX XXX XXX" as typed by a user is fine.
+function isValidKenyanPhone(raw){
+  const v = (raw||'').replace(/\s+/g,'');
+  return /^(\+254[17]\d{8}|0[17]\d{8})$/.test(v);
+}
+function phoneErrorMsg(){
+  return 'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX';
+}
 function doSearch(){
   const q=(document.getElementById('search-input')||{}).value||'';
   const loc=(document.getElementById('location-input')||{}).value||'';
@@ -1351,6 +1360,7 @@ async function submitBooking(){
   const phone=document.getElementById('bk-phone').value.trim();
   const date=document.getElementById('bk-date').value;
   if(!name||!phone||!date){showToast('Please fill in all required fields','err');return;}
+  if(!isValidKenyanPhone(phone)){showToast(phoneErrorMsg(),'err');return;}
   const urgency=document.getElementById('bk-urgency').value;
   const res=await api('/bookings','POST',{provider_id:S.curProvider.id,client_name:name,client_phone:phone,service:document.getElementById('bk-svc').value,date,notes:document.getElementById('bk-notes').value,urgency});
   if(res.error){showToast(res.error,'err');return;}
@@ -1391,6 +1401,7 @@ async function submitReview(){
   const phone=document.getElementById('rv-phone').value.trim();
   const text=document.getElementById('rv-text').value.trim();
   if(!phone){showToast('Please enter the phone number you used for your booking','err');return;}
+  if(!isValidKenyanPhone(phone)){showToast(phoneErrorMsg(),'err');return;}
   if(!text){showToast('Please write a short review','err');return;}
   // The booking is marked 'completed' by the server itself, only once the review
   // below is successfully inserted — never before. This guarantees a service can't
@@ -1698,6 +1709,7 @@ S.trackTimers=[];
 async function trackBooking(){
   const phone=document.getElementById('track-phone').value.trim();
   if(!phone){showToast('Please enter the phone number you used when booking','err');return;}
+  if(!isValidKenyanPhone(phone)){showToast(phoneErrorMsg(),'err');return;}
   const el=document.getElementById('track-results');
   el.innerHTML='<div style="font-size:.82rem;color:var(--text3)">Checking…</div>';
   S.trackTimers.forEach(clearInterval); S.trackTimers=[];
@@ -1860,7 +1872,7 @@ async function openNotifModal(){
 
 /* ── Registration ── */
 function goStep(n){
-  if(n===2){const fn=document.getElementById('r-fn').value.trim(),ph=document.getElementById('r-ph').value.trim(),lo=document.getElementById('r-loc').value.trim(),ca=document.getElementById('r-cat').value,bi=document.getElementById('r-bio').value.trim();if(!fn||!ph||!lo||!ca||bi.length<20){showToast('Please fill all required fields (bio must be at least 20 chars).','err');return;}}
+  if(n===2){const fn=document.getElementById('r-fn').value.trim(),ph=document.getElementById('r-ph').value.trim(),lo=document.getElementById('r-loc').value.trim(),ca=document.getElementById('r-cat').value,bi=document.getElementById('r-bio').value.trim();if(!fn||!ph||!lo||!ca||bi.length<20){showToast('Please fill all required fields (bio must be at least 20 chars).','err');return;}if(!isValidKenyanPhone(ph)){showToast(phoneErrorMsg(),'err');return;}}
   if(n===3&&!S.regSvcs.length){showToast('Add at least one service.','err');return;}
   if(n===4){const em=document.getElementById('r-em').value.trim(),pw=document.getElementById('r-pw').value,pw2=document.getElementById('r-pw2').value;if(!em||!pw){showToast('Email and password required.','err');return;}if(pw!==pw2){showToast('Passwords do not match.','err');return;}if(pw.length<6){showToast('Password must be at least 6 characters.','err');return;}if(!document.getElementById('r-id').value.trim()){showToast('Please enter your ID number.','err');return;}const fn=document.getElementById('r-fn').value.trim(),ln=document.getElementById('r-ln').value.trim();document.getElementById('rev-summary').innerHTML=`<p><strong>Name:</strong> ${fn} ${ln}</p><p><strong>Category:</strong> ${document.getElementById('r-cat').value}</p><p><strong>Location:</strong> ${document.getElementById('r-loc').value}</p><p><strong>Phone:</strong> ${document.getElementById('r-ph').value}</p><p><strong>Email:</strong> ${em}</p><p><strong>Services:</strong> ${S.regSvcs.map(s=>s.n+' ('+s.p+')').join(', ')||'None'}</p><p><strong>ID:</strong> ${document.getElementById('r-id').value}</p>`;}
   for(let i=1;i<=4;i++){const el=document.getElementById('rs'+i);if(el)el.style.display=i===n?'block':'none';const sn=document.getElementById('sn'+i),sl=document.getElementById('sl'+i);if(sn){sn.className='rsn'+(i<n?' done':i===n?' active':'');sl.className='rsl'+(i===n?' active':'');}}

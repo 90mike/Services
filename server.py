@@ -431,18 +431,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         qs   = urllib.parse.parse_qs(parsed.query)
 
 
-        # Check current session status — used by frontend polling to detect suspension
-        if path == '/api/auth/me':
-            tu = get_token_user(self)
-            if not tu:
-                respond(self, {'error': 'Unauthorized'}, 401); return
-            conn = get_db()
-            row = conn.execute(sql("SELECT role FROM users WHERE id=?"), (tu['id'],)).fetchone()
-            conn.close()
-            if not row:
-                respond(self, {'error': 'Not found'}, 404); return
-            respond(self, {'role': row['role']}); return
-
         if path == '/api/time':
             import datetime
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -661,6 +649,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlparse(self.path).path
         body = read_body(self)
+
+        # Session restore on page load/refresh — returns full user+provider object
+        if path == '/api/auth/me':
+            tu = get_token_user(self)
+            if not tu: respond(self, {'error':'not authenticated'}, 401); return
+            conn = get_db()
+            user = conn.execute(sql("SELECT id,email,role,name FROM users WHERE id=?"), (tu['id'],)).fetchone()
+            if not user: respond(self, {'error':'user not found'}, 404); conn.close(); return
+            u = dict(user)
+            if u['role'] == 'removed_provider':
+                conn.close(); respond(self, {'error':'Account removed'}, 403); return
+            provider = None
+            if u['role']=='provider':
+                prow = conn.execute(sql("SELECT * FROM providers WHERE user_id=?"), (u['id'],)).fetchone()
+                if prow:
+                    provider = dict(prow)
+                    provider['services'] = json.loads(provider.get('services','[]'))
+                    provider['work_photos'] = json.loads(provider.get('work_photos','[]'))
+            conn.close()
+            respond(self, {'user':u,'provider':provider}); return
 
         if path == '/api/auth/forgot-password':
             email = body.get('email','').lower().strip()

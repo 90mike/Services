@@ -986,7 +986,9 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     <button class="ad-nb" onclick="adNav(this,'ad-queue')">✅ Verification queue</button>
     <button class="ad-nb" onclick="adNav(this,'ad-all')">👥 All providers</button>
     <button class="ad-nb" onclick="adNav(this,'ad-bookings')">📅 Bookings</button>
+    <button class="ad-nb" onclick="adNav(this,'ad-completed')">✅ Completed bookings</button>
     <button class="ad-nb" onclick="adNav(this,'ad-pending-svc')">🛠 Pending services</button>
+    <button class="ad-nb" onclick="adNav(this,'ad-contacts')">📇 Contacts</button>
   </div>
   <div class="ad-main">
     <div id="ad-overview">
@@ -1008,15 +1010,25 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(255,255,255,.02)
     </div>
     <div id="ad-all" style="display:none">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.9rem">All registered providers</div>
-      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Category</th><th>Location</th><th>Phone</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead><tbody id="all-prov-tbl"><tr><td colspan="7" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Name</th><th>Category</th><th>Location</th><th>Phone</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead><tbody id="all-prov-tbl"><tr><td colspan="8" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
     </div>
     <div id="ad-bookings" style="display:none">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.9rem">All bookings</div>
-      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Urgency</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead><tbody id="all-bk-tbl"><tr><td colspan="8" style="text-align:center;color:var(--text3)">No bookings yet</td></tr></tbody></table></div></div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Urgency</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead><tbody id="all-bk-tbl"><tr><td colspan="9" style="text-align:center;color:var(--text3)">No bookings yet</td></tr></tbody></table></div></div>
     </div>
     <div id="ad-pending-svc" style="display:none">
       <div style="font-weight:700;font-size:1rem;margin-bottom:.9rem">Pending services (accepted bookings awaiting completion)</div>
-      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Phone</th><th>Action</th></tr></thead><tbody id="pending-svc-tbl"><tr><td colspan="6" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Phone</th><th>Action</th></tr></thead><tbody id="pending-svc-tbl"><tr><td colspan="7" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
+    </div>
+    <div id="ad-completed" style="display:none">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.9rem">Completed bookings</div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Provider</th><th>Client</th><th>Service</th><th>Date</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead><tbody id="completed-bk-tbl"><tr><td colspan="8" style="text-align:center;color:var(--text3)">No completed bookings yet</td></tr></tbody></table></div></div>
+    </div>
+    <div id="ad-contacts" style="display:none">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:.9rem">📇 Contact reveals</div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Provider</th><th>Viewed</th></tr></thead><tbody id="contact-views-tbl"><tr><td colspan="3" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
+      <div style="font-weight:700;font-size:1rem;margin:1.1rem 0 .9rem">👤 Client contacts</div>
+      <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>#</th><th>Client name</th><th>Phone</th><th>Bookings</th><th>Last contact</th></tr></thead><tbody id="client-contacts-tbl"><tr><td colspan="5" style="text-align:center;color:var(--text3)">Loading…</td></tr></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -2191,19 +2203,22 @@ async function loadAdminNotifs(){
 }
 function adNav(el,sid){
   document.querySelectorAll('.ad-nb').forEach(b=>b.classList.remove('active'));el.classList.add('active');
-  ['ad-overview','ad-queue','ad-all','ad-bookings','ad-pending-svc'].forEach(id=>document.getElementById(id).style.display=id===sid?'block':'none');
+  ['ad-overview','ad-queue','ad-all','ad-bookings','ad-completed','ad-pending-svc','ad-contacts'].forEach(id=>document.getElementById(id).style.display=id===sid?'block':'none');
   if(sid==='ad-queue')loadPending();
   if(sid==='ad-all')loadAllProviders();
   if(sid==='ad-bookings')loadAllBookings();
+  if(sid==='ad-completed')loadCompletedBookings();
   if(sid==='ad-pending-svc')loadPendingServices();
+  if(sid==='ad-contacts'){loadContactViews();loadClientContacts();}
 }
 async function loadAllBookings(){
   const data=await api('/admin/bookings');
   const tbody=document.getElementById('all-bk-tbl');
-  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3)">No bookings yet</td></tr>';return;}
+  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3)">No bookings yet</td></tr>';return;}
   const spMap={pending:'sp-p',ongoing:'sp-p',awaiting_review:'sp-p',completed:'sp-v',rejected:'sp-r'};
   data.forEach(b=>S.bkCache[b.id]=b);
-  tbody.innerHTML=data.map(b=>`<tr>
+  tbody.innerHTML=data.map((b,i)=>`<tr>
+    <td>${i+1}</td>
     <td>${b.first_name||''} ${b.last_name||''}</td>
     <td>${b.client_name}</td>
     <td>${b.service}</td>
@@ -2212,11 +2227,50 @@ async function loadAllBookings(){
     <td>${b.client_phone}</td>
     <td><span class="sp ${spMap[b.status]||'sp-p'}">${b.status}</span></td>
     <td style="display:flex;gap:4px;flex-wrap:wrap">
-      ${b.status==='completed'
-        ?`<button class="btn-no" style="font-size:.68rem;padding:3px 8px" onclick="adminToggleComplete('${b.id}','pending')">↩ Undo</button>`
-        :`<button class="btn-ok" style="font-size:.68rem;padding:3px 8px" onclick="confirmMarkDone('${b.id}',true)">✓ Done</button>`}
+      <button class="btn-ok" style="font-size:.68rem;padding:3px 8px" onclick="confirmMarkDone('${b.id}',true)">✓ Done</button>
       <button class="btn-no" style="font-size:.68rem;padding:3px 8px;border-color:var(--red);color:var(--red)" onclick="adminDeleteBooking('${b.id}')">🗑</button>
     </td>
+  </tr>`).join('');
+}
+async function loadCompletedBookings(){
+  const data=await api('/admin/bookings/completed');
+  const tbody=document.getElementById('completed-bk-tbl');
+  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3)">No completed bookings yet</td></tr>';return;}
+  data.forEach(b=>S.bkCache[b.id]=b);
+  tbody.innerHTML=data.map((b,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${b.first_name||''} ${b.last_name||''}</td>
+    <td>${b.client_name}</td>
+    <td>${b.service}</td>
+    <td>${b.date}</td>
+    <td>${b.client_phone}</td>
+    <td><span class="sp sp-v">completed</span></td>
+    <td style="display:flex;gap:4px;flex-wrap:wrap">
+      <button class="btn-no" style="font-size:.68rem;padding:3px 8px" onclick="adminToggleComplete('${b.id}','pending')">↩ Undo</button>
+      <button class="btn-no" style="font-size:.68rem;padding:3px 8px;border-color:var(--red);color:var(--red)" onclick="adminDeleteBooking('${b.id}')">🗑</button>
+    </td>
+  </tr>`).join('');
+}
+async function loadContactViews(){
+  const data=await api('/admin/contact-views');
+  const tbody=document.getElementById('contact-views-tbl');
+  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--text3)">No contact reveals yet</td></tr>';return;}
+  tbody.innerHTML=data.map((c,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${c.provider_name||'—'}</td>
+    <td>${timeAgo(c.created_at)}</td>
+  </tr>`).join('');
+}
+async function loadClientContacts(){
+  const data=await api('/admin/client-contacts');
+  const tbody=document.getElementById('client-contacts-tbl');
+  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3)">No client contacts yet</td></tr>';return;}
+  tbody.innerHTML=data.map((c,i)=>`<tr>
+    <td>${i+1}</td>
+    <td>${c.client_name||'—'}</td>
+    <td>${c.client_phone||'—'}</td>
+    <td>${c.booking_count}</td>
+    <td>${timeAgo(c.last_contact)}</td>
   </tr>`).join('');
 }
 async function adminMarkDone(bid){
@@ -2226,21 +2280,22 @@ async function adminMarkDone(bid){
 }
 async function adminToggleComplete(bid,status){
   const res=await api('/admin/bookings/complete','POST',{booking_id:bid,status});
-  if(res.success){showToast(status==='completed'?'✅ Marked completed.':'↩ Marked incomplete.','ok');loadAllBookings();}
+  if(res.success){showToast(status==='completed'?'✅ Marked completed.':'↩ Marked incomplete.','ok');loadAllBookings();loadCompletedBookings();}
   else showToast('Failed','err');
 }
 async function adminDeleteBooking(bid){
   if(!confirm('Delete this booking permanently? This cannot be undone.')) return;
   const res=await api('/admin/bookings/delete','POST',{booking_id:bid});
-  if(res.success){showToast('Booking deleted.','info');loadAllBookings();loadAdminData();}
+  if(res.success){showToast('Booking deleted.','info');loadAllBookings();loadCompletedBookings();loadAdminData();}
   else showToast(res.error||'Failed to delete','err');
 }
 async function loadPendingServices(){
   const data=await api('/admin/bookings/pending-services');
   const tbody=document.getElementById('pending-svc-tbl');
-  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3)">No pending services</td></tr>';return;}
+  if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3)">No pending services</td></tr>';return;}
   data.forEach(b=>S.bkCache[b.id]=b);
-  tbody.innerHTML=data.map(b=>`<tr>
+  tbody.innerHTML=data.map((b,i)=>`<tr>
+    <td>${i+1}</td>
     <td>${b.first_name||''} ${b.last_name||''}</td>
     <td>${b.client_name} · ${b.client_phone}</td>
     <td>${b.service}</td>
@@ -2291,7 +2346,7 @@ async function loadAllProviders(){
   const tbody=document.getElementById('all-prov-tbl');
   if(!Array.isArray(data)||!data.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3)">No providers registered yet</td></tr>';return;}
   const spMap={approved:'sp-v',pending:'sp-p',rejected:'sp-r',removed:'sp-r',suspended:'sp-r'};
-  tbody.innerHTML=data.map(p=>{
+  tbody.innerHTML=data.map((p,i)=>{
     const nm=(p.first_name+' '+p.last_name).replace(/'/g,'');
     const uid=p.user_id||'';
     const actions=p.status==='removed'
@@ -2303,7 +2358,7 @@ async function loadAllProviders(){
             :`<button class="btn-no" style="font-size:.65rem;padding:3px 7px;border-color:var(--gold);color:var(--gold)" onclick="adminSuspendProvider('${p.id}','${nm}','${uid}')">⏸ Suspend</button>`}
           <button class="btn-no" style="font-size:.65rem;padding:3px 7px;border-color:var(--red);color:var(--red)" onclick="removeProvider('${p.id}','${nm}')">🗑 Remove</button>
         </div>`;
-    return `<tr><td>${p.first_name} ${p.last_name}</td><td>${p.category}</td><td>${p.location}</td><td>${p.phone}</td><td><span class="sp ${spMap[p.status]||'sp-p'}">${p.status}</span></td><td>${timeAgo(p.submitted_at)}</td><td>${actions}</td></tr>`;
+    return `<tr><td>${i+1}</td><td>${p.first_name} ${p.last_name}</td><td>${p.category}</td><td>${p.location}</td><td>${p.phone}</td><td><span class="sp ${spMap[p.status]||'sp-p'}">${p.status}</span></td><td>${timeAgo(p.submitted_at)}</td><td>${actions}</td></tr>`;
   }).join('');
 }
 async function adminWarnProvider(pid,name,userId){

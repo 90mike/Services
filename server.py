@@ -219,6 +219,10 @@ def init_db():
                 message TEXT, read INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT NOW()
             )""",
+            """CREATE TABLE IF NOT EXISTS contact_views (
+                id TEXT PRIMARY KEY, provider_id TEXT, provider_name TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
         ]
         for s in statements:
             c.execute(s)
@@ -272,6 +276,10 @@ def init_db():
     CREATE TABLE IF NOT EXISTS reviews (
         id TEXT PRIMARY KEY, provider_id TEXT,
         reviewer_name TEXT, stars INTEGER, text TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS contact_views (
+        id TEXT PRIMARY KEY, provider_id TEXT, provider_name TEXT,
         created_at TEXT DEFAULT (datetime('now'))
     );
     """)
@@ -573,7 +581,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
             conn = get_db()
             rows = conn.execute("""SELECT b.*, p.first_name, p.last_name FROM bookings b
                                     LEFT JOIN providers p ON p.id=b.provider_id
+                                    WHERE b.status != 'completed'
                                     ORDER BY b.created_at DESC""").fetchall()
+            conn.close()
+            respond(self, [dict(r) for r in rows]); return
+
+        if path == '/api/admin/bookings/completed':
+            if not require_admin(self): return
+            conn = get_db()
+            rows = conn.execute("""SELECT b.*, p.first_name, p.last_name FROM bookings b
+                                    LEFT JOIN providers p ON p.id=b.provider_id
+                                    WHERE b.status = 'completed'
+                                    ORDER BY b.created_at DESC""").fetchall()
+            conn.close()
+            respond(self, [dict(r) for r in rows]); return
+
+        # Contact-reveal events log — which provider contacts were viewed and when
+        if path == '/api/admin/contact-views':
+            if not require_admin(self): return
+            conn = get_db()
+            rows = conn.execute("SELECT * FROM contact_views ORDER BY created_at DESC LIMIT 300").fetchall()
+            conn.close()
+            respond(self, [dict(r) for r in rows]); return
+
+        # Aggregated client contacts collected from bookings
+        if path == '/api/admin/client-contacts':
+            if not require_admin(self): return
+            conn = get_db()
+            rows = conn.execute("""SELECT client_name, client_phone, COUNT(*) as booking_count,
+                                    MAX(created_at) as last_contact
+                                    FROM bookings
+                                    GROUP BY client_name, client_phone
+                                    ORDER BY last_contact DESC""").fetchall()
             conn.close()
             respond(self, [dict(r) for r in rows]); return
 
@@ -758,7 +797,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not require_admin(self): return
             pid = body.get('provider_id')
             conn = get_db()
-            conn.execute(sql("UPDATE providers SET status='approved', approved_at=NOW(), trust_score=75 WHERE id=?"), (pid,))
+            conn.execute(sql("UPDATE providers SET status='approved', approved_at=NOW(), trust_score=60 WHERE id=?"), (pid,))
             prow = conn.execute(sql("SELECT * FROM providers WHERE id=?"), (pid,)).fetchone()
             if prow:
                 p = dict(prow)
@@ -1102,7 +1141,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 conn.execute(sql("INSERT INTO notifications (id,user_id,provider_id,type,message) VALUES (?,?,?,?,?)"),
                              (str(uuid.uuid4()), admin['id'], pid, 'info',
                               f"👁️ Contact unlocked: {pname}'s phone number was viewed by a client."))
-                conn.commit()
+            conn.execute(sql("INSERT INTO contact_views (id,provider_id,provider_name) VALUES (?,?,?)"),
+                         (str(uuid.uuid4()), pid, pname))
+            conn.commit()
             conn.close()
             respond(self, {'success': True}); return
 

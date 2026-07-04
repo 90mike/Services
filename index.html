@@ -2341,11 +2341,20 @@ const SECRET='ts-admin-9mVk';
 async function restoreSession(){
   const tok=localStorage.getItem('ts_token');
   if(!tok) return;
-  const me=await api('/auth/me');
+  // Use POST /auth/me which returns the full user+provider object —
+  // the GET version only returns {role}, which means S.provider never gets
+  // populated after a refresh, breaking self-booking prevention and dashboard nav.
+  const me=await api('/auth/me','POST');
   if(me.error||!me.user){localStorage.removeItem('ts_token');return;}
   S.user=me.user;
   if(me.user.role==='admin'){S.adminLoggedIn=true;}
-  else if(me.user.role==='provider'){S.provider=me.provider;}
+  else if(me.user.role==='provider'){
+    S.provider=me.provider;
+    // Re-populate work photos from server so the grid is ready immediately
+    if(me.provider){
+      S.workPhotos=[...(me.provider.work_photos||[]),...Array(6).fill(null)].slice(0,6);
+    }
+  }
   updateUI();
 }
 async function initApp(){
@@ -2355,10 +2364,15 @@ async function initApp(){
   if(rawHash===SECRET||rawHash==='admin-login'||rawHash==='admin'){
     initPage=S.adminLoggedIn?'admin':'admin-login';
   }else if(rawHash==='provider-dash'){
-    // Only allow landing on dashboard if this device's session is an approved provider
+    // restoreSession now fully populates S.provider before we get here
     initPage=(S.provider&&S.provider.status==='approved')?'provider-dash':'search';
   }else if(rawHash&&rawHash!=='admin'&&rawHash!=='admin-login'){
     initPage=rawHash;
+  }
+  // If session was restored as an approved provider but hash isn't set to
+  // provider-dash, still redirect them there so refresh never drops them
+  if(initPage==='search'&&S.provider&&S.provider.status==='approved'&&!rawHash){
+    initPage='provider-dash';
   }
   nav(initPage,false);
   history.replaceState({page:initPage},'','#'+(initPage==='admin'||initPage==='admin-login'?SECRET:initPage));

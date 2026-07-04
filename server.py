@@ -857,12 +857,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if path == '/api/bookings/accept':
             bid = body.get('booking_id')
+            tu = get_token_user(self)
             conn = get_db()
             brow = conn.execute(sql("SELECT * FROM bookings WHERE id=?"), (bid,)).fetchone()
-            if brow:
-                b = dict(brow)
-                conn.execute(sql("UPDATE bookings SET accepted=1, status='ongoing' WHERE id=?"), (bid,))
-                conn.commit()
+            if not brow:
+                conn.close(); respond(self, {'error':'Booking not found'}, 404); return
+            b = dict(brow)
+            # Block self-acceptance: compare the booking's client phone against
+            # the accepting provider's registered phone (normalize format first)
+            def _norm(p):
+                p = (p or '').replace(' ','')
+                if p.startswith('+254'): p = '0' + p[4:]
+                return p
+            if tu:
+                prow = conn.execute(sql("SELECT phone FROM providers WHERE user_id=?"), (tu['id'],)).fetchone()
+                if prow and _norm(prow[0]) == _norm(b.get('client_phone','')):
+                    conn.close()
+                    respond(self, {'error':'You cannot accept your own booking.'}, 403); return
+            conn.execute(sql("UPDATE bookings SET accepted=1, status='ongoing' WHERE id=?"), (bid,))
+            conn.commit()
             conn.close()
             respond(self, {'success': True}); return
 
@@ -879,10 +892,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not is_valid_kenyan_phone(phone):
                 respond(self, {'error':'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX'}, 400); return
             conn  = get_db()
-            # Block provider from booking themselves
+            # Block provider from booking themselves — normalize both phones
+            # before comparing so 07xx and +2547xx both match correctly
+            def normalize_phone(p):
+                p = (p or '').replace(' ','')
+                if p.startswith('+254'): p = '0' + p[4:]
+                return p
             if phone:
                 own = conn.execute(sql("SELECT phone FROM providers WHERE id=?"), (pid,)).fetchone()
-                if own and own[0] == phone:
+                if own and normalize_phone(own[0]) == normalize_phone(phone):
                     conn.close()
                     respond(self, {'error': 'You cannot book your own profile.'}, 403)
                     return
@@ -941,13 +959,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 respond(self, {'error':'Enter a valid phone number, e.g. 07XXXXXXXX, 01XXXXXXXX, +2547XXXXXXXX or +2541XXXXXXXX'}, 400); return
             conn = get_db()
             # Block self-review: check if this phone belongs to the provider being reviewed
+            # Normalize phone format so +2547xx and 07xx both match correctly
+            def _norm_ph(p):
+                p = (p or '').replace(' ','')
+                if p.startswith('+254'): p = '0' + p[4:]
+                return p
             provider_row = conn.execute(sql("SELECT phone, user_id FROM providers WHERE id=?"), (pid,)).fetchone()
             if provider_row:
                 pr = dict(provider_row)
                 # Block by phone match (works for logged-out providers too)
-                if pr.get('phone') and pr['phone'].strip() == phone.strip():
+                if pr.get('phone') and _norm_ph(pr['phone']) == _norm_ph(phone):
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return
-                # Also block by token (logged-in provider)
+                # Also block by token (logged-in provider bypassing phone check)
                 tu = get_token_user(self)
                 if tu and tu['role']=='provider' and pr.get('user_id') == tu['id']:
                     conn.close(); respond(self, {'error':'You cannot review your own profile.'}, 403); return

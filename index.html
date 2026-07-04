@@ -1349,6 +1349,10 @@ function switchPTab(el,tid){
 function openBookingModal(){
   if(!S.curProvider) return;
   const p=S.curProvider;
+  // Prevent a provider from booking themselves
+  if(S.provider && S.provider.id===p.id){
+    showToast("You can't book yourself 😄",'err'); return;
+  }
   document.getElementById('bk-pname').textContent='Booking with '+p.first_name+' '+p.last_name+' · '+p.category;
   const sel=document.getElementById('bk-svc');
   sel.innerHTML=(p.services&&p.services.length?p.services.map(s=>`<option value="${s.n||s.name}">${s.n||s.name} — ${s.p||s.price}</option>`).join(''):'<option>General service</option>');
